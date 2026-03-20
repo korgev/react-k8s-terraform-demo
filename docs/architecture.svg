@@ -1,0 +1,78 @@
+<svg width="100%" viewBox="0 0 680 510" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+  <style>
+    text { font-family: system-ui, sans-serif; fill: #2C2C2A; }
+    .th  { font-size: 14px; font-weight: 500; }
+    .ts  { font-size: 12px; font-weight: 400; fill: #5F5E5A; }
+    .box-gray     { fill: #F1EFE8; stroke: #888780; }
+    .box-purple   { fill: #EEEDFE; stroke: #7F77DD; }
+    .box-teal     { fill: #E1F5EE; stroke: #1D9E75; }
+    .box-amber    { fill: #FAEEDA; stroke: #BA7517; }
+    .arr { fill: none; stroke: #888780; stroke-width: 1.2; }
+  </style>
+</defs>
+<!-- Developer -->
+<rect x="20" y="30" width="130" height="115" rx="12" stroke-width="0.5" class="box-gray"/>
+<text class="th" x="85" y="56" text-anchor="middle" dominant-baseline="central">Developer</text>
+<text class="ts" x="85" y="73" text-anchor="middle" dominant-baseline="central">macOS M-series</text>
+<rect x="33" y="85" width="104" height="28" rx="6" stroke-width="0.5" class="box-gray"/>
+<text class="ts" x="85" y="99" text-anchor="middle" dominant-baseline="central">git push → main</text>
+<rect x="33" y="120" width="104" height="18" rx="4" stroke-width="0.5" class="box-gray"/>
+<text class="ts" x="85" y="129" text-anchor="middle" dominant-baseline="central">terraform apply</text>
+<!-- Arrow: Developer → GitLab -->
+<text class="ts" x="162" y="100" text-anchor="middle" dominant-baseline="central">push</text>
+<line x1="150" y1="85" x2="188" y2="78" class="arr" marker-end="url(#arrow)"/>
+<!-- GitLab.com -->
+<rect x="192" y="30" width="218" height="185" rx="12" stroke-width="0.5" class="box-purple"/>
+<text class="th" x="301" y="55" text-anchor="middle" dominant-baseline="central">GitLab.com</text>
+<text class="ts" x="301" y="71" text-anchor="middle" dominant-baseline="central">free SaaS</text>
+<rect x="207" y="83" width="188" height="35" rx="6" stroke-width="0.5" class="box-purple"/>
+<text class="th" x="301" y="97" text-anchor="middle" dominant-baseline="central">Repository</text>
+<text class="ts" x="301" y="111" text-anchor="middle" dominant-baseline="central">source code + manifests</text>
+<rect x="207" y="128" width="188" height="38" rx="6" stroke-width="0.5" class="box-purple"/>
+<text class="th" x="301" y="143" text-anchor="middle" dominant-baseline="central">CI/CD Pipeline</text>
+<text class="ts" x="301" y="158" text-anchor="middle" dominant-baseline="central">build → push → deploy → rollback</text>
+<rect x="207" y="176" width="188" height="28" rx="6" stroke-width="0.5" class="box-purple"/>
+<text class="th" x="301" y="190" text-anchor="middle" dominant-baseline="central">Container Registry</text>
+<!-- Arrow: GitLab → Kind cluster -->
+<text class="ts" x="301" y="228" text-anchor="middle">kubectl apply + image pull</text>
+<line x1="301" y1="215" x2="301" y2="243" class="arr" marker-end="url(#arrow)" stroke-width="1.4"/>
+<!-- Arrow: terraform → Kind cluster -->
+<path d="M 85 145 L 85 192 L 160 192 L 160 260 L 168 260" fill="none" stroke="#888780" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text class="ts" x="110" y="210" dominant-baseline="central">provision</text>
+<!-- Kind Cluster -->
+<rect x="20" y="253" width="640" height="240" rx="14" stroke-width="0.5" class="box-teal"/>
+<text class="th" x="340" y="277" text-anchor="middle" dominant-baseline="central">Kind cluster — K8s 1.29 · 2 nodes · OrbStack · macOS</text>
+<rect x="40" y="290" width="130" height="22" rx="5" stroke-width="0.5" class="box-teal"/>
+<text class="ts" x="105" y="301" text-anchor="middle" dominant-baseline="central">control-plane</text>
+<rect x="185" y="290" width="85" height="22" rx="5" stroke-width="0.5" class="box-teal"/>
+<text class="ts" x="227" y="301" text-anchor="middle" dominant-baseline="central">worker node</text>
+<!-- Namespaces -->
+<rect x="38" y="323" width="182" height="80" rx="8" stroke-width="0.5" class="box-teal"/>
+<text class="th" x="129" y="343" text-anchor="middle" dominant-baseline="central">ingress-nginx</text>
+<text class="ts" x="129" y="360" text-anchor="middle" dominant-baseline="central">nginx-ingress-controller</text>
+<text class="ts" x="129" y="376" text-anchor="middle" dominant-baseline="central">NodePort 80/443</text>
+<text class="ts" x="129" y="392" text-anchor="middle" dominant-baseline="central">routes by Host header</text>
+<rect x="236" y="323" width="208" height="80" rx="8" stroke-width="0.5" class="box-teal"/>
+<text class="th" x="340" y="343" text-anchor="middle" dominant-baseline="central">webapp</text>
+<text class="ts" x="340" y="360" text-anchor="middle" dominant-baseline="central">Deployment/react-app · 2 pods</text>
+<text class="ts" x="340" y="376" text-anchor="middle" dominant-baseline="central">Service · Ingress · HPA · PDB</text>
+<text class="ts" x="340" y="392" text-anchor="middle" dominant-baseline="central">ServiceAccount · pull secret</text>
+<rect x="460" y="323" width="182" height="80" rx="8" stroke-width="0.5" class="box-teal"/>
+<text class="th" x="551" y="343" text-anchor="middle" dominant-baseline="central">monitoring</text>
+<text class="ts" x="551" y="360" text-anchor="middle" dominant-baseline="central">Prometheus Operator</text>
+<text class="ts" x="551" y="376" text-anchor="middle" dominant-baseline="central">Grafana + Alertmanager</text>
+<text class="ts" x="551" y="392" text-anchor="middle" dominant-baseline="central">node-exporter · kube-state</text>
+<!-- Internal arrows -->
+<line x1="220" y1="363" x2="234" y2="363" stroke="#1D9E75" stroke-width="1.2" fill="none" marker-end="url(#arrow)"/>
+<line x1="444" y1="363" x2="458" y2="363" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3 2" fill="none" marker-end="url(#arrow)"/>
+<!-- ngrok -->
+<rect x="160" y="418" width="360" height="56" rx="8" stroke-width="0.5" class="box-amber"/>
+<text class="th" x="340" y="440" text-anchor="middle" dominant-baseline="central">ngrok tunnel</text>
+<text class="ts" x="340" y="460" text-anchor="middle" dominant-baseline="central">localhost:80 → https://id.ngrok-free.app</text>
+<line x1="340" y1="403" x2="340" y2="418" stroke="#888780" stroke-width="1.2" fill="none" marker-end="url(#arrow)"/>
+<text class="ts" x="340" y="496" text-anchor="middle" dominant-baseline="central">Public URL — share with reviewer to demonstrate live app</text>
+</svg>

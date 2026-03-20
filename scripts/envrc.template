@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .envrc — Terraform sensitive variable injection
+#
+# HOW TO USE:
+#   1. Copy this file:  cp scripts/envrc.template .envrc
+#   2. Fill in values below
+#   3. Load it:         source .envrc
+#      OR install direnv (brew install direnv) for automatic loading
+#
+# ⚠️  NEVER commit .envrc — it is in .gitignore
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Grafana admin password (you choose this — min 8 chars)
+export TF_VAR_grafana_admin_password="CHANGE_ME_min8chars"
+
+# GitLab deploy token — created in:
+# GitLab project → Settings → Repository → Deploy tokens
+# Scope: read_registry only
+export TF_VAR_registry_username="DEPLOY_TOKEN_USERNAME"
+export TF_VAR_registry_password="DEPLOY_TOKEN_PASSWORD"
+
+# Convenience: set KUBECONFIG so kubectl works without -kubeconfig flag
+export KUBECONFIG="$(pwd)/kubeconfig"
+
+echo "✅ Environment loaded — TF_VAR_* variables set"

@@ -1,0 +1,19 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# ⚠️  NEVER commit terraform.tfvars — it is in .gitignore
+
+cluster_name       = "react-k8s-cluster"
+kubernetes_version = "v1.29.2"
+app_name           = "react-app"
+namespace          = "webapp"
+ingress_host       = "webapp.local"
+
+# Your GitLab Container Registry path:
+# Format: registry.gitlab.com/<username>/<project-name>/react-app
+image_repository   = "registry.gitlab.com/YOUR_USERNAME/react-k8s-terraform-demo/react-app"
+
+replicas           = 2
+
+# ── Sensitive vars — set via environment, NOT here ──────────────────────────
+# export TF_VAR_grafana_admin_password="YourSecurePassword123!"
+# export TF_VAR_registry_username="your-deploy-token-username"
+# export TF_VAR_registry_password="your-deploy-token-password"

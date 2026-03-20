@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ServiceMonitor — tells Prometheus Operator to scrape this app's metrics
+#
+# The kube-prometheus-stack installs the ServiceMonitor CRD.
+# Nginx itself doesn't expose /metrics — we use the nginx-ingress metrics
+# which are automatically scraped by the ingress ServiceMonitor.
+#
+# This manifest adds our namespace label so Prometheus includes it in
+# the scrape target selector.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: webapp
+  labels:
+    app.kubernetes.io/managed-by: terraform
+    # This label enables Prometheus to discover ServiceMonitors in this namespace
+    monitoring: "true"
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted

@@ -1,0 +1,48 @@
+# ─── Terraform ────────────────────────────────────────────────────
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfstate.*.backup
+**/terraform.tfvars          # contains secrets — use .example instead
+*.tfplan
+.terraformrc
+terraform.rc
+
+# ─── Kubernetes / Secrets ─────────────────────────────────────────
+kubeconfig
+*.kubeconfig
+*-kubeconfig
+secrets/
+*.secret
+
+# ─── Node / React ─────────────────────────────────────────────────
+app/node_modules/
+app/dist/
+app/.env
+app/.env.*
+!app/.env.example
+
+# ─── macOS ────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ─── Editors ──────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ─── Logs ─────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+
+# ─── Misc ─────────────────────────────────────────────────────────
+.env
+.cache
+
+# ─── Local secrets ────────────────────────────────────────────────
+.envrc
+*.bak
