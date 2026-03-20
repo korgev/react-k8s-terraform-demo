@@ -34,3 +34,4 @@ All infrastructure: Terraform (modular)
 - [x] Pipeline rollback capability (bonus)
 - [x] Terraform modules structure (bonus)
 - [x] Full documentation suite (README, SETUP, ARCHITECTURE, SECURITY, RUNBOOK)
+# react-k8s-terraform-demo
