@@ -5,7 +5,7 @@ terraform {
     # Kind cluster provisioner
     kind = {
       source  = "tehcyx/kind"
-      version = "~> 0.4"
+      version = "~> 0.11.0"
     }
     # Write kubeconfig to local file
     local = {
