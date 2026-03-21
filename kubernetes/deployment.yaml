@@ -1,14 +1,3 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Deployment manifest — managed by GitLab CI/CD (NOT Terraform)
-#
-# Placeholders replaced by CI pipeline via envsubst:
-#   ${IMAGE_REPOSITORY}  →  registry.gitlab.com/user/project/react-app
-#   ${IMAGE_TAG}         →  git commit SHA (e.g. a3f9b12)
-#   ${APP_VERSION}       →  v1.0.<pipeline_iid>
-#
-# Infrastructure (namespace, service, ingress, HPA, PDB, SA, pull secret)
-# is managed by Terraform — see terraform/modules/k8s-app/
-# ─────────────────────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,23 +9,17 @@ metadata:
     app.kubernetes.io/managed-by: gitlab-ci
     app.kubernetes.io/part-of: react-k8s-demo
   annotations:
-    # Records what deployed this version — visible in kubectl rollout history
     kubernetes.io/change-cause: "pipeline=${CI_PIPELINE_ID} sha=${IMAGE_TAG} version=${APP_VERSION}"
 spec:
   replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: react-app
-
-  # ── Rolling update — zero downtime ─────────────────────────────────────────
-  # maxUnavailable: 0  → never route to zero pods
-  # maxSurge: 1        → spin up new pod first, then kill old
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
-
   template:
     metadata:
       labels:
@@ -45,38 +28,25 @@ spec:
         app.kubernetes.io/managed-by: gitlab-ci
         app.kubernetes.io/part-of: react-k8s-demo
       annotations:
-        # Changing this annotation forces pod restart even if image tag is same
         deploy-timestamp: "${DEPLOY_TIME}"
-
     spec:
       serviceAccountName: react-app
       automountServiceAccountToken: false
-
-      # ── Scheduling ───────────────────────────────────────────────────────────
-      # ScheduleAnyway: BEST EFFORT spread across nodes.
-      # DoNotSchedule would block scheduling on Kind's single worker node.
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway   # ← critical for Kind (1 worker node)
+          whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: react-app
-
       containers:
         - name: react-app
           image: "${IMAGE_REPOSITORY}:${IMAGE_TAG}"
-
-          # IfNotPresent: re-pull only when tag is new
-          # Paired with immutable SHA tags this is safe and avoids rate limits
           imagePullPolicy: IfNotPresent
-
           ports:
             - name: http
               containerPort: 80
               protocol: TCP
-
-          # ── Resources ──────────────────────────────────────────────────────
           resources:
             requests:
               cpu: "50m"
@@ -84,17 +54,12 @@ spec:
             limits:
               cpu: "200m"
               memory: "128Mi"
-
-          # ── Probes ─────────────────────────────────────────────────────────
-          # startup: give up to 30s for container to pass first check
           startupProbe:
             httpGet:
               path: /
               port: 80
             failureThreshold: 6
             periodSeconds: 5
-
-          # readiness: only send traffic when this passes
           readinessProbe:
             httpGet:
               path: /
@@ -102,9 +67,6 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
-            successThreshold: 1
-
-          # liveness: restart pod if this fails 3 times
           livenessProbe:
             httpGet:
               path: /
@@ -112,21 +74,18 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 20
             failureThreshold: 3
-
-          # ── Security ───────────────────────────────────────────────────────
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false   # nginx needs writable /var/cache and /tmp
-            runAsNonRoot: false             # nginx master binds port 80 as root
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop: ["ALL"]
-              add: ["NET_BIND_SERVICE"]     # only capability nginx needs
-
-      # ── Image pull secret ─────────────────────────────────────────────────
-      # Created by Terraform: terraform/modules/k8s-app — kubernetes_secret.registry_auth
+              add: ["NET_BIND_SERVICE"]
       imagePullSecrets:
         - name: react-app-registry-auth
-
-      # ── Pod-level security ────────────────────────────────────────────────
       securityContext:
-        fsGroup: 101   # nginx group — allows writing to nginx cache dirs
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault

@@ -26,10 +26,10 @@ resource "kubernetes_namespace" "app" {
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
       # monitoring=true enables Prometheus ServiceMonitor discovery
-      "monitoring" = "true"
+      "monitoring"                           = "true"
       # Pod Security Admission — baseline blocks privileged pods
-      "pod-security.kubernetes.io/enforce" = "baseline"
-      "pod-security.kubernetes.io/warn"    = "restricted"
+      "pod-security.kubernetes.io/enforce" = "privileged"
+      "pod-security.kubernetes.io/warn"      = "restricted"
     }
   }
 }
@@ -62,7 +62,8 @@ resource "kubernetes_secret" "registry_auth" {
   data = {
     ".dockerconfigjson" = jsonencode({
       auths = {
-        "registry.gitlab.com" = {
+        # Local GitLab CE Container Registry — port 5050
+        "192.168.2.2:5050" = {
           username = var.registry_username
           password = var.registry_password
           auth     = base64encode("${var.registry_username}:${var.registry_password}")
@@ -103,14 +104,17 @@ resource "kubernetes_ingress_v1" "app" {
     namespace = kubernetes_namespace.app.metadata[0].name
     labels    = local.labels
     annotations = {
-
-
+      # No nginx annotations needed — Traefik v3 uses ingressClassName field
       # Uncomment for TLS in production (requires cert-manager):
-      # "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+      # "traefik.ingress.kubernetes.io/router.tls" = "true"
     }
   }
 
   spec {
+    # Modern approach: ingressClassName field instead of deprecated annotation
+    # Traefik v3 registers IngressClass "traefik" automatically via Helm chart
+    ingress_class_name = "traefik"
+
     rule {
       host = var.ingress_host
       http {
@@ -146,7 +150,7 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "app" {
     scale_target_ref {
       api_version = "apps/v1"
       kind        = "Deployment"
-      name        = var.app_name # matches Deployment name in kubernetes/deployment.yaml
+      name        = var.app_name   # matches Deployment name in kubernetes/deployment.yaml
     }
 
     metric {

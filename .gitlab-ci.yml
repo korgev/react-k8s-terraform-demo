@@ -1,30 +1,30 @@
 # =============================================================================
 # GitLab CI/CD Pipeline — react-k8s-terraform-demo
-# Executor: shell (runs directly on macOS — no Docker-in-Docker needed)
+#
+# Executor: shell (runs directly on macOS — uses local Docker + kubectl)
 #
 # Stages:
-#   build    → npm ci + vite build → dist/ artifact
-#   docker   → docker build + push to GitLab Container Registry
-#   deploy   → kubectl apply deployment.yaml
-#   rollback → manual one-click rollback
+#   test     -> lint + build verification
+#   docker   -> build + push image to GitLab Container Registry
+#   deploy   -> kubectl apply to Kind cluster
+#   rollback -> manual one-click rollback (bonus requirement)
 #
-# Required CI/CD Variables (Settings → CI/CD → Variables):
-#   KUBE_CONFIG   base64-encoded kubeconfig   Protected ✅  Masked ✅
+# Required CI/CD Variables (Settings -> CI/CD -> Variables):
+#   KUBE_CONFIG   base64-encoded kubeconfig   Protected + Masked
 #
 # Auto-provided by GitLab CE:
-#   CI_REGISTRY            192.168.2.2:5050
-#   CI_REGISTRY_USER       auto-scoped per pipeline
-#   CI_REGISTRY_PASSWORD   auto-scoped per pipeline
-#   CI_REGISTRY_IMAGE      192.168.2.2:5050/rwx/react-k8s-terraform-demo
+#   CI_REGISTRY         192.168.2.2:5050
+#   CI_REGISTRY_USER    auto-scoped per pipeline
+#   CI_REGISTRY_PASSWORD auto-scoped per pipeline
+#   CI_REGISTRY_IMAGE   192.168.2.2:5050/rwx/react-k8s-terraform-demo
 # =============================================================================
 
 stages:
-  - build
+  - test
   - docker
   - deploy
   - rollback
 
-# Global defaults
 default:
   interruptible: true
   retry:
@@ -33,7 +33,6 @@ default:
       - runner_system_failure
       - stuck_or_timeout_failure
 
-# Shared variables
 variables:
   IMAGE_REPOSITORY: "$CI_REGISTRY_IMAGE/react-app"
   IMAGE_TAG:        "$CI_COMMIT_SHORT_SHA"
@@ -43,18 +42,21 @@ variables:
   APP_NAME:         "react-app"
 
 # =============================================================================
-# STAGE 1 — Build React Application
-# Shell executor: uses node/npm already installed on Mac
+# STAGE 1 — Test
+# Lint + production build verification
+# Shell executor: uses node/npm installed on Mac
 # =============================================================================
-build:react:
-  stage: build
+test:build:
+  stage: test
   before_script:
     - node --version
     - npm --version
     - cd app
     - npm ci --prefer-offline --no-audit
   script:
-    - echo "Building React app — $CI_COMMIT_SHORT_SHA"
+    - echo "Running lint..."
+    - npm run lint
+    - echo "Verifying production build..."
     - |
       VITE_APP_VERSION="v1.0.$CI_PIPELINE_IID" \
       VITE_COMMIT_SHA="$CI_COMMIT_SHA" \
@@ -62,7 +64,7 @@ build:react:
       VITE_ENVIRONMENT="production" \
       VITE_CLUSTER_NAME="react-k8s-cluster" \
       npm run build
-    - echo "Build complete — $(du -sh dist/ | cut -f1) bundle"
+    - echo "Build size: $(du -sh dist/ | cut -f1)"
   artifacts:
     paths:
       - app/dist/
@@ -73,20 +75,18 @@ build:react:
 
 # =============================================================================
 # STAGE 2 — Docker Build & Push
-# Shell executor: uses local OrbStack Docker daemon directly (no DinD)
+# Shell executor: uses local OrbStack Docker daemon directly (no DinD needed)
 # =============================================================================
 docker:build-push:
   stage: docker
   needs:
-    - job: build:react
+    - job: test:build
       artifacts: true
   before_script:
-    - docker version
-    # Login to local GitLab CE Container Registry
-    # Allow insecure registry since we use HTTP not HTTPS
+    - docker version --format 'Docker {{.Client.Version}}'
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
   script:
-    - echo "Building Docker image $IMAGE_FULL"
+    - echo "Building image $IMAGE_FULL"
     - |
       docker build \
         --build-arg VITE_APP_VERSION="v1.0.$CI_PIPELINE_IID" \
@@ -101,7 +101,6 @@ docker:build-push:
         -t "$IMAGE_FULL" \
         -t "$IMAGE_LATEST" \
         app/
-    - echo "Pushing to GitLab Container Registry..."
     - docker push "$IMAGE_FULL"
     - docker push "$IMAGE_LATEST"
     - echo "Pushed $IMAGE_FULL"
@@ -118,8 +117,8 @@ docker:build-push:
 
 # =============================================================================
 # STAGE 3 — Deploy to Kubernetes
-# Shell executor: uses kubectl already installed on Mac
-# kubeconfig written from base64 CI variable
+# Shell executor: uses kubectl installed on Mac
+# kubeconfig decoded from base64 CI variable (macOS: base64 -D)
 # =============================================================================
 deploy:kubernetes:
   stage: deploy
@@ -127,17 +126,13 @@ deploy:kubernetes:
     - job: docker:build-push
       artifacts: true
   before_script:
-    - kubectl version --client
-    # Write kubeconfig from base64 CI variable
-    # macOS base64 decode flag is -D (not -d like Linux)
+    - kubectl version --client --short 2>/dev/null || kubectl version --client
     - mkdir -p ~/.kube
     - echo "$KUBE_CONFIG" | base64 -D > ~/.kube/config
     - chmod 600 ~/.kube/config
-    # Verify cluster is reachable
     - kubectl cluster-info --request-timeout=10s
-    - echo "Deploying $IMAGE_FULL to $K8S_NAMESPACE"
   script:
-    # Save previous image for rollback record
+    # Save current image for rollback
     - |
       PREVIOUS_IMAGE=$(
         kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" \
@@ -147,45 +142,33 @@ deploy:kubernetes:
       echo "Previous image: $PREVIOUS_IMAGE"
       echo "PREVIOUS_IMAGE=$PREVIOUS_IMAGE" >> rollback.env
 
-    # Substitute placeholders in deployment manifest
-    # envsubst is part of gettext — install if missing: brew install gettext
+    # Render deployment manifest with current values
     - |
       export DEPLOY_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
       envsubst < kubernetes/deployment.yaml > /tmp/deployment-rendered.yaml
+      echo "Rendered manifest:"
+      cat /tmp/deployment-rendered.yaml
 
-    - echo "Rendered deployment manifest:"
-    - cat /tmp/deployment-rendered.yaml
-
-    # Apply deployment — handles both first-run create and updates
+    # Apply — handles both first-run create and updates
     - kubectl apply -f /tmp/deployment-rendered.yaml
 
-    # Wait for rollout with auto-rollback on failure
+    # Wait with auto-rollback on failure
     - |
-      echo "Waiting for rollout (timeout 180s)..."
       if ! kubectl rollout status deployment/"$APP_NAME" \
-          -n "$K8S_NAMESPACE" \
-          --timeout=180s; then
-        echo "Rollout failed — triggering automatic rollback"
+          -n "$K8S_NAMESPACE" --timeout=180s; then
+        echo "Rollout failed — rolling back automatically"
         kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE"
-        kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=60s
-        echo "Rolled back to: $PREVIOUS_IMAGE"
         exit 1
       fi
 
     - kubectl get pods -n "$K8S_NAMESPACE" -l "app.kubernetes.io/name=$APP_NAME"
     - |
-      ACTIVE_IMAGE=$(kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" \
+      ACTIVE=$(kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" \
         -o jsonpath='{.spec.template.spec.containers[0].image}')
-      echo "Deployment complete"
-      echo "  Active image : $ACTIVE_IMAGE"
-      echo "  Namespace    : $K8S_NAMESPACE"
-      echo "  Pipeline     : $CI_PIPELINE_ID"
+      echo "Deployed: $ACTIVE"
 
   after_script:
-    - echo "=== Pod status at job end ==="
-    - kubectl get pods -n webapp --kubeconfig ~/.kube/config || true
-    - echo "=== Recent events ==="
-    - kubectl get events -n webapp --sort-by='.lastTimestamp' --kubeconfig ~/.kube/config | tail -15 || true
+    - kubectl get pods -n webapp --kubeconfig ~/.kube/config 2>/dev/null || true
 
   artifacts:
     reports:
@@ -200,8 +183,9 @@ deploy:kubernetes:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
 # =============================================================================
-# STAGE 4 — Manual Rollback
+# STAGE 4 — Manual Rollback (bonus requirement)
 # Triggered manually from GitLab UI
+# Reverts to previous deployment revision
 # =============================================================================
 rollback:kubernetes:
   stage: rollback
@@ -215,17 +199,14 @@ rollback:kubernetes:
     - echo "$KUBE_CONFIG" | base64 -D > ~/.kube/config
     - chmod 600 ~/.kube/config
   script:
-    - echo "Manual rollback triggered by $GITLAB_USER_LOGIN"
-    - echo "  Rolling back from $IMAGE_FULL"
-    - echo "  Rolling back to   $PREVIOUS_IMAGE"
+    - echo "Manual rollback by $GITLAB_USER_LOGIN"
+    - echo "Rolling back from $IMAGE_FULL to $PREVIOUS_IMAGE"
     - kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE"
     - kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=120s
-    - echo "Rollback complete"
     - |
       ACTIVE=$(kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" \
         -o jsonpath='{.spec.template.spec.containers[0].image}')
-      echo "  Now running: $ACTIVE"
-    - kubectl get pods -n "$K8S_NAMESPACE" -l "app.kubernetes.io/name=$APP_NAME"
+      echo "Now running: $ACTIVE"
 
   environment:
     name: production
