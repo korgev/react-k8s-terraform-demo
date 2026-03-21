@@ -5,7 +5,7 @@ module "monitoring" {
 
   depends_on = [
     module.kind_cluster,
-    helm_release.nginx_ingress,
+    helm_release.traefik,
   ]
 
   grafana_admin_password = var.grafana_admin_password

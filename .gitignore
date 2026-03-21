@@ -45,3 +45,4 @@ npm-debug.log*
 # ─── Local secrets ────────────────────────────────────────────────
 .envrc
 *.bak
+terraform/react-k8s-cluster-config

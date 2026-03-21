@@ -103,8 +103,8 @@ resource "kubernetes_ingress_v1" "app" {
     namespace = kubernetes_namespace.app.metadata[0].name
     labels    = local.labels
     annotations = {
-      "kubernetes.io/ingress.class"                = "nginx"
-      "nginx.ingress.kubernetes.io/rewrite-target" = "/"
+
+
       # Uncomment for TLS in production (requires cert-manager):
       # "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
     }
