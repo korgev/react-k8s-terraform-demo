@@ -23,6 +23,7 @@ ENV VITE_APP_VERSION=$VITE_APP_VERSION \
 RUN npm run build
 
 # Stage 2: Serve
+# nginx listens on 8080 so we can run as non-root (ports < 1024 require root)
 FROM nginx:1.25-alpine3.18
 
 RUN rm /etc/nginx/conf.d/default.conf && \
@@ -31,22 +32,23 @@ RUN rm /etc/nginx/conf.d/default.conf && \
              /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp \
              /var/cache/nginx/uwsgi_temp \
-             /var/cache/nginx/scgi_temp \
-             /var/run && \
+             /var/cache/nginx/scgi_temp && \
     chown -R nginx:nginx /var/cache/nginx \
-                         /var/run && \
-    chmod -R 755 /var/cache/nginx /var/run
+                         /var/run \
+                         /var/log/nginx && \
+    chmod -R 755 /var/cache/nginx /var/run /var/log/nginx && \
+    touch /var/run/nginx.pid && \
+    chown nginx:nginx /var/run/nginx.pid
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 RUN chown -R nginx:nginx /usr/share/nginx/html
 
-# Run nginx as non-root nginx user
 USER nginx
 
-EXPOSE 80
+EXPOSE 8080
 
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:80/ || exit 1
+  CMD wget -qO- http://localhost:8080/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
