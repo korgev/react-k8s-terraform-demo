@@ -11,93 +11,56 @@ terraform {
   }
 }
 
-# ─── Monitoring Namespace ─────────────────────────────────────────
+# Monitoring Namespace
 resource "kubernetes_namespace" "monitoring" {
   metadata {
     name = "monitoring"
     labels = {
       "app.kubernetes.io/managed-by"       = "terraform"
-      "pod-security.kubernetes.io/enforce" = "privileged" # node-exporter needs privileged
+      "pod-security.kubernetes.io/enforce" = "privileged"
     }
   }
 }
 
-# ─── kube-prometheus-stack ───────────────────────────────────────
-# Bundles: Prometheus Operator, Prometheus, Alertmanager, Grafana,
-#          node-exporter, kube-state-metrics
+# kube-prometheus-stack v82.12.0
+# Official chart from prometheus-community
+# Bundles: Prometheus Operator, Prometheus, Alertmanager,
+#          Grafana, node-exporter, kube-state-metrics
 resource "helm_release" "kube_prometheus_stack" {
   name             = "kube-prometheus-stack"
   repository       = "https://prometheus-community.github.io/helm-charts"
   chart            = "kube-prometheus-stack"
-  version          = "58.2.2"
+  version          = "72.6.2"
   namespace        = kubernetes_namespace.monitoring.metadata[0].name
   create_namespace = false
   wait             = true
   timeout          = 600
 
-  # ── Grafana config ────────────────────────────────────────────
-  set {
+  values = [
+    file("${path.root}/prometheus-values.yaml")
+  ]
+
+  # Grafana password injected separately — never stored in values file
+  set_sensitive {
     name  = "grafana.adminPassword"
     value = var.grafana_admin_password
   }
-  set {
-    name  = "grafana.service.type"
-    value = "ClusterIP" # access via port-forward or ingress
-  }
-  # Pre-load dashboard for our app namespace
-  set {
-    name  = "grafana.sidecar.dashboards.enabled"
-    value = "true"
-  }
-
-  # ── Prometheus retention ──────────────────────────────────────
-  set {
-    name  = "prometheus.prometheusSpec.retention"
-    value = "7d" # keep 7 days of metrics locally
-  }
-  set {
-    name  = "prometheus.prometheusSpec.resources.requests.memory"
-    value = "256Mi"
-  }
-  set {
-    name  = "prometheus.prometheusSpec.resources.limits.memory"
-    value = "512Mi"
-  }
-
-  # ── Scrape our app namespace ──────────────────────────────────
-  set {
-    name  = "prometheus.prometheusSpec.podMonitorNamespaceSelector.matchLabels.monitoring"
-    value = "true"
-  }
-  set {
-    name  = "prometheus.prometheusSpec.serviceMonitorNamespaceSelector.matchLabels.monitoring"
-    value = "true"
-  }
-
-  # ── Alertmanager (basic config) ───────────────────────────────
-  set {
-    name  = "alertmanager.alertmanagerSpec.resources.requests.memory"
-    value = "64Mi"
-  }
-
-  # ── Kind compatibility — disable PSP (removed in K8s 1.25+) ──
-  set {
-    name  = "global.rbac.createAggregateClusterRoles"
-    value = "true"
-  }
 }
 
-# ─── Grafana Ingress ──────────────────────────────────────────────
+# Grafana Ingress
+# Uses modern ingressClassName field — no deprecated annotations
 resource "kubernetes_ingress_v1" "grafana" {
   metadata {
     name      = "grafana"
     namespace = kubernetes_namespace.monitoring.metadata[0].name
-    annotations = {
-      "kubernetes.io/ingress.class" = "nginx"
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
     }
   }
 
   spec {
+    ingress_class_name = "traefik"
+
     rule {
       host = "grafana.local"
       http {

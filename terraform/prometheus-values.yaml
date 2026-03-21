@@ -1,0 +1,29 @@
+# prometheus-values.yaml
+# kube-prometheus-stack v82.12.0 — Kubernetes 1.32 compatible
+# Official chart: https://prometheus-community.github.io/helm-charts
+
+grafana:
+  service:
+    type: ClusterIP
+  sidecar:
+    dashboards:
+      enabled: true
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    resources:
+      requests:
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        memory: 64Mi
+
+global:
+  rbac:
+    createAggregateClusterRoles: true

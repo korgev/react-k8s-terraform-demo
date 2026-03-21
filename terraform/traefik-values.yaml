@@ -1,0 +1,59 @@
+# traefik-values.yaml
+# Traefik v3 Helm chart values for Kind cluster on macOS
+# Chart version: 39.0.4 | Traefik Proxy: v3.6.9
+
+# Use NodePort so Kind hostPort mapping works
+service:
+  type: NodePort
+
+# EntryPoints
+# Traefik internal ports: 8000 (web), 8443 (websecure)
+# hostPort maps container port to host Mac port via Kind
+ports:
+  web:
+    port: 8000
+    hostPort: 80
+    nodePort: 30080
+    expose:
+      default: true
+  websecure:
+    port: 8443
+    hostPort: 443
+    nodePort: 30443
+    expose:
+      default: true
+
+# Schedule only on control-plane node (labeled ingress-ready=true)
+nodeSelector:
+  ingress-ready: "true"
+
+# Toleration for control-plane NoSchedule taint
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Equal"
+    effect: "NoSchedule"
+
+# IngressClass - modern approach, replaces deprecated kubernetes.io/ingress.class annotation
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+
+# Enable Kubernetes Ingress provider
+providers:
+  kubernetesIngress:
+    enabled: true
+
+# Access logs for observability
+logs:
+  access:
+    enabled: true
+
+# Disable dashboard public exposure (security)
+ingressRoute:
+  dashboard:
+    enabled: false
+
+# API dashboard still accessible via port-forward if needed
+api:
+  dashboard: true
+  insecure: false

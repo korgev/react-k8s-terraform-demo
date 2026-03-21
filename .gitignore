@@ -46,3 +46,5 @@ npm-debug.log*
 .envrc
 *.bak
 terraform/react-k8s-cluster-config
+.helm-cache/
+.helm-repositories.yaml
