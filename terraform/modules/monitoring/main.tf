@@ -42,7 +42,7 @@ resource "helm_release" "kube_prometheus_stack" {
   }
   set {
     name  = "grafana.service.type"
-    value = "ClusterIP"  # access via port-forward or ingress
+    value = "ClusterIP" # access via port-forward or ingress
   }
   # Pre-load dashboard for our app namespace
   set {
@@ -53,7 +53,7 @@ resource "helm_release" "kube_prometheus_stack" {
   # ── Prometheus retention ──────────────────────────────────────
   set {
     name  = "prometheus.prometheusSpec.retention"
-    value = "7d"  # keep 7 days of metrics locally
+    value = "7d" # keep 7 days of metrics locally
   }
   set {
     name  = "prometheus.prometheusSpec.resources.requests.memory"

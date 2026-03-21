@@ -23,14 +23,14 @@ terraform {
     }
   }
 
-  # ── Remote state (uncomment for team use) ────────────────────────
-  # backend "http" {
-  #   address        = "https://gitlab.com/api/v4/projects/<PROJECT_ID>/terraform/state/k8s-webapp"
-  #   lock_address   = "https://gitlab.com/api/v4/projects/<PROJECT_ID>/terraform/state/k8s-webapp/lock"
-  #   unlock_address = "https://gitlab.com/api/v4/projects/<PROJECT_ID>/terraform/state/k8s-webapp/lock"
-  #   username       = "gitlab-ci-token"
-  #   password       = var.gitlab_token   # injected via TF_VAR_gitlab_token env var
-  #   lock_method    = "POST"
-  #   unlock_method  = "DELETE"
-  # }
+  # ── Remote state ─────
+
+  backend "http" {
+    address        = "http://192.168.2.2/api/v4/projects/1/terraform/state/react-k8s-terraform-demo"
+    lock_address   = "http://192.168.2.2/api/v4/projects/1/terraform/state/react-k8s-terraform-demo/lock"
+    unlock_address = "http://192.168.2.2/api/v4/projects/1/terraform/state/react-k8s-terraform-demo/lock"
+    lock_method    = "POST"
+    unlock_method  = "DELETE"
+    retry_wait_min = 5
+  }
 }

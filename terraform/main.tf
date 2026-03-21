@@ -77,10 +77,10 @@ module "k8s_app" {
     helm_release.nginx_ingress,
   ]
 
-  app_name      = var.app_name
-  namespace     = var.namespace
-  replicas      = var.replicas
-  ingress_host  = var.ingress_host   # webapp.local
+  app_name     = var.app_name
+  namespace    = var.namespace
+  replicas     = var.replicas
+  ingress_host = var.ingress_host # webapp.local
 
   # Registry pull secret — deploy token from GitLab (read_registry scope)
   # Injected via: export TF_VAR_registry_username / TF_VAR_registry_password

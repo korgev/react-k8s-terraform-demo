@@ -6,7 +6,7 @@ variable "cluster_name" {
 variable "kubernetes_version" {
   description = "Kubernetes version tag for kindest/node image"
   type        = string
-  default     = "v1.29.2"
+  default     = "v1.32.0"
 }
 
 variable "kubeconfig_path" {
