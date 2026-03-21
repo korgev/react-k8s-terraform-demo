@@ -2,17 +2,18 @@ terraform {
   required_version = ">= 1.7.0"
 
   required_providers {
-    # Kind cluster provisioner
     kind = {
       source  = "tehcyx/kind"
       version = "~> 0.11.0"
     }
-    # Write kubeconfig to local file
     local = {
       source  = "hashicorp/local"
       version = "~> 2.4"
     }
-    # Used in k8s-app module
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~> 2.27"
@@ -22,8 +23,6 @@ terraform {
       version = "~> 2.12"
     }
   }
-
-  # ── Remote state ─────
 
   backend "http" {
     address        = "http://192.168.2.2/api/v4/projects/1/terraform/state/react-k8s-terraform-demo"

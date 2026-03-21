@@ -26,10 +26,10 @@ resource "kubernetes_namespace" "app" {
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
       # monitoring=true enables Prometheus ServiceMonitor discovery
-      "monitoring"                           = "true"
+      "monitoring" = "true"
       # Pod Security Admission — baseline blocks privileged pods
       "pod-security.kubernetes.io/enforce" = "privileged"
-      "pod-security.kubernetes.io/warn"      = "restricted"
+      "pod-security.kubernetes.io/warn"    = "restricted"
     }
   }
 }
@@ -150,7 +150,7 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "app" {
     scale_target_ref {
       api_version = "apps/v1"
       kind        = "Deployment"
-      name        = var.app_name   # matches Deployment name in kubernetes/deployment.yaml
+      name        = var.app_name # matches Deployment name in kubernetes/deployment.yaml
     }
 
     metric {
