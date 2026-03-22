@@ -24,12 +24,11 @@ terraform {
     }
   }
 
-  backend "http" {
-    address        = "http://192.168.2.2/api/v4/projects/1/terraform/state/react-k8s-terraform-demo"
-    lock_address   = "http://192.168.2.2/api/v4/projects/1/terraform/state/react-k8s-terraform-demo/lock"
-    unlock_address = "http://192.168.2.2/api/v4/projects/1/terraform/state/react-k8s-terraform-demo/lock"
-    lock_method    = "POST"
-    unlock_method  = "DELETE"
-    retry_wait_min = 5
-  }
+  # Remote state via GitLab CE HTTP backend with locking
+  # Configure in terraform/backend.hcl (gitignored — see backend.hcl.example)
+  # Init: terraform init -backend-config=backend.hcl
+  # Credentials via env vars (never in backend.hcl):
+  #   TF_HTTP_USERNAME = your-gitlab-username
+  #   TF_HTTP_PASSWORD = your-personal-access-token
+  backend "http" {}
 }

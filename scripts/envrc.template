@@ -23,3 +23,16 @@ export TF_VAR_registry_password="DEPLOY_TOKEN_PASSWORD"
 export KUBECONFIG="$(pwd)/kubeconfig"
 
 echo "✅ Environment loaded — TF_VAR_* variables set"
+
+# GitLab CE configuration
+export GITLAB_CE_IP="192.168.2.2"
+export GITLAB_PROJECT_ID="1"
+export TF_HTTP_ADDRESS="http://\${GITLAB_CE_IP}/api/v4/projects/\${GITLAB_PROJECT_ID}/terraform/state/react-k8s-terraform-demo"
+export TF_HTTP_LOCK_ADDRESS="\${TF_HTTP_ADDRESS}/lock"
+export TF_HTTP_UNLOCK_ADDRESS="\${TF_HTTP_ADDRESS}/lock"
+
+# Terraform HTTP backend — GitLab CE remote state
+# Replace GITLAB_IP and PROJECT_ID with your values
+export TF_HTTP_ADDRESS="http://GITLAB_IP/api/v4/projects/PROJECT_ID/terraform/state/react-k8s-terraform-demo"
+export TF_HTTP_LOCK_ADDRESS="${TF_HTTP_ADDRESS}/lock"
+export TF_HTTP_UNLOCK_ADDRESS="${TF_HTTP_ADDRESS}/lock"

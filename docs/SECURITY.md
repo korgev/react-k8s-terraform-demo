@@ -1,206 +1,104 @@
 # SECURITY.md — Security Posture & Reviewer Access Guide
 
----
-
 ## Reviewer Access Model
 
-This section defines exactly what access is granted to external reviewers,
-what they can and cannot do, and how to revoke it.
+| Resource | Access | Permissions | Expiry |
+|---|---|---|---|
+| GitLab project | Guest role | Read code, view pipelines | 7 days |
+| Container Registry | Deploy token | read_registry only | 90 days |
+| App URL | ngrok HTTPS | View running app | Permanent static domain |
+| Grafana | Ingress | Read dashboards | Session |
 
-### What the reviewer can access
+Reviewer CANNOT: push code, modify CI variables, access cluster, push/delete images.
 
-| Resource | Access Type | Permissions | Expiry |
-|----------|-------------|-------------|--------|
-| GitLab Project | Guest role | Read code, view pipelines, read CI logs | Revoke after review |
-| Container Registry | Deploy token | Pull images only (`read_registry`) | 90 days (set at creation) |
-| App URL (ngrok) | Public HTTP | View running app only | Session-based |
-| Grafana | Port-forward or Ingress | Read-only dashboards | Session-based |
-
-### What the reviewer CANNOT do
-
-- ❌ Push code or create branches
-- ❌ Modify CI/CD variables or pipeline settings
-- ❌ Access your GitLab personal account settings
-- ❌ Access the Kubernetes cluster directly (no kubeconfig shared)
-- ❌ Push or delete Docker images
-- ❌ Access Terraform state
-
-### Granting reviewer access — step by step
-
-**1. Add reviewer as Guest on GitLab project:**
+### Grant reviewer access
 ```
-GitLab Project → Members → Invite member
-Role: Guest (read-only — cannot push code or see CI variables)
-Expiry: set 7 days from review date
+GitLab → Members → Invite → Guest → expiry: 7 days
 ```
 
-**2. Share the ngrok public URL** (from SETUP.md Phase 10).
-
-**3. Optionally share Grafana** read-only:
-```bash
-# Create read-only Grafana viewer account via API
-# Or just share credentials for a dedicated viewer account
-# Never share the admin password
+### Revoke after review
+```
+GitLab → Members → remove
+GitLab → Deploy tokens → revoke
 ```
 
-### Revoking access after review
+## Secrets Inventory
 
-```
-GitLab Project → Members → find reviewer → Remove member
-GitLab Project → Settings → Repository → Deploy tokens → Revoke token
-Stop ngrok session (Ctrl+C in terminal)
-```
+| Secret | Storage | In Git? | In Logs? |
+|---|---|---|---|
+| Grafana password | .envrc (gitignored) | Never | sensitive=true |
+| Registry deploy token | .envrc (gitignored) | Never | K8s secret sensitive |
+| GitLab PAT (TF state) | .envrc (gitignored) | Never | Masked CI var |
+| KUBE_CONFIG | GitLab CI var masked+protected | Never | Masked |
+| K8s pull secret | Terraform from env vars | Never | (sensitive value) |
 
----
+Rule: No secret appears in any committed file.
 
-## Security Decisions & Rationale
+## Container Security
 
-### 1. Secrets Management
+### Multi-stage Dockerfile
+Stage 1 (builder): node:20-alpine — compiles code
+Stage 2 (server): nginx:1.25-alpine — serves static files only
+Final image: ~44MB, zero build tools, zero npm packages.
 
-| Secret | Storage Method | Rationale |
-|--------|----------------|-----------|
-| kubeconfig | GitLab CI Variable (protected + masked) | Never in git; masked prevents log exposure |
-| Registry deploy token | GitLab CI Variable (masked) | Scoped to `read_registry` only |
-| Grafana password | Terraform env var (`TF_VAR_`) | Never in `.tfvars` or state output |
-| Registry pull secret | Kubernetes Secret (created by Terraform) | Namespace-scoped; not accessible cross-namespace |
+### nginx non-root
+Port 8080 enables:
+- runAsNonRoot: true + runAsUser: 101 (nginx uid)
+- Drop ALL capabilities
+- seccompProfile: RuntimeDefault
+- allowPrivilegeEscalation: false
 
-**Rule:** No secret appears in any file that is committed to git. All secrets are injected at runtime via environment variables or CI/CD variable store.
+### Image labels (OCI standard)
+Every image is traceable:
+- org.opencontainers.image.source = GitLab project URL
+- org.opencontainers.image.revision = git commit SHA
+- org.opencontainers.image.created = build timestamp
 
-### 2. Container Image Security
+## Kubernetes Security
 
-**Multi-stage Dockerfile:**
-```
-Stage 1 (builder) — node:20-alpine   → compiles code, has npm, build tools
-Stage 2 (server)  — nginx:1.25-alpine → serves files ONLY, no build tools
-```
-- Final image contains zero npm packages, no shell scripts, no build utilities
-- Attack surface is limited to nginx + static HTML/JS/CSS
-- Image pinned to exact versions (no `latest` tags in Dockerfile)
-
-**Image labels (OCI standard):**
-```
-org.opencontainers.image.source   = GitLab project URL
-org.opencontainers.image.revision = git commit SHA
-org.opencontainers.image.created  = build timestamp
-```
-Every image is traceable back to the exact commit and pipeline that built it.
-
-### 3. Kubernetes Security
-
-**Namespace isolation:**
-- `webapp` namespace — application workloads only
-- `monitoring` namespace — observability tools only
-- `ingress-nginx` namespace — ingress controller only
-- No cross-namespace service access configured
-
-**Pod Security Admission (PSA):**
+### Pod SecurityContext
 ```yaml
-pod-security.kubernetes.io/enforce: baseline
-pod-security.kubernetes.io/warn: restricted
-```
-Blocks privileged containers, host network access, and dangerous capabilities.
-
-**SecurityContext per container:**
-```yaml
-allowPrivilegeEscalation: false
+runAsNonRoot: true
+runAsUser: 101
+seccompProfile:
+  type: RuntimeDefault
 capabilities:
   drop: ["ALL"]
-  add: ["NET_BIND_SERVICE"]  # only what nginx needs
+allowPrivilegeEscalation: false
 ```
 
-**ServiceAccount:**
-- Dedicated SA per application (no `default` SA used)
-- `automountServiceAccountToken: false` — app has no K8s API access
+### ServiceAccount
+- Dedicated SA per app (not default)
+- automountServiceAccountToken: false
 
-**Pod Disruption Budget:**
-- `minAvailable: 1` — ensures at least 1 pod survives node drain
+## CI/CD Security
 
-### 4. Network Security
+| Practice | Implementation |
+|---|---|
+| Build once | Same SHA image deployed everywhere |
+| Immutable tags | git SHA, never overwritten |
+| Secrets masked | KUBE_CONFIG never appears in logs |
+| Auto-rollback | Failed deployments revert automatically |
+| Credential separation | CI uses CI_REGISTRY_*, K8s uses deploy token |
 
-**Ingress:**
-- All external traffic enters via Nginx Ingress Controller only
-- Internal services use `ClusterIP` (not exposed externally)
-- No `NodePort` or `LoadBalancer` services on application pods
+## Known Security Trade-offs
 
-**Nginx security headers (set in nginx.conf):**
-```
-X-Frame-Options: SAMEORIGIN          — prevents clickjacking
-X-Content-Type-Options: nosniff      — prevents MIME sniffing
-X-XSS-Protection: 1; mode=block     — XSS filter
-Referrer-Policy: strict-origin-...  — limits referrer leakage
-Permissions-Policy: camera=(), ...  — disables browser APIs
-server_tokens: off                   — hides nginx version
-```
+### Catch-all Ingress
+Risk: Accepts requests regardless of Host header.
+Mitigation: Cluster is local, behind ngrok, not directly internet-exposed.
+Production fix: Stable domain + cert-manager + enable_catch_all_ingress=false.
 
-### 5. CI/CD Security
+### GitLab CE HTTP Registry
+Risk: Images transmitted over HTTP on local network.
+Mitigation: 192.168.2.2 is local VM only.
+Production fix: TLS cert on registry.
 
-**Build principles:**
-- **Build once, deploy many** — same image SHA deployed everywhere
-- **Immutable artifacts** — image tagged with git SHA, never overwritten
-- **No secrets in pipeline logs** — all secret variables are masked
+### Shell Executor GitLab Runner
+Risk: CI jobs run directly on developer Mac.
+Mitigation: Local demo only — no shared infrastructure at risk.
+Production fix: Kubernetes executor with job-scoped service accounts.
 
-**Automatic rollback on failed deployment:**
-```yaml
-# In .gitlab-ci.yml deploy stage:
-if ! kubectl rollout status ... --timeout=180s; then
-  kubectl rollout undo deployment/react-app -n webapp
-  exit 1
-fi
-```
-If the new image fails to start within 3 minutes, the previous version is automatically restored.
-
-**Deployment history:**
-Every deployment annotated with:
-```
-kubernetes.io/change-cause: "GitLab pipeline <ID> — <SHA> — <message>"
-```
-Full audit trail of who deployed what and when.
-
-### 6. Terraform Security
-
-**No sensitive values in state output:**
-```hcl
-output "kubeconfig" {
-  sensitive = true  # never printed to terminal or stored in CI logs
-}
-```
-
-**Variable handling:**
-```bash
-# Sensitive vars always via environment, never in .tfvars
-export TF_VAR_grafana_admin_password="..."
-export TF_VAR_registry_password="..."
-```
-
-**`.gitignore` protections:**
-```
-terraform.tfvars     # blocked from git
-*.tfstate            # blocked from git
-kubeconfig           # blocked from git
-```
-
-### 7. Access Token Scoping
-
-| Token | Scope | Rationale |
-|-------|-------|-----------|
-| GitLab Deploy Token | `read_registry` only | K8s only needs to pull images |
-| GitLab CI Token | Auto-scoped to project | Built-in, rotates per pipeline |
-| Terraform state token | Project-scoped | Only if using GitLab HTTP backend |
-
----
-
-## Threat Model Summary
-
-| Threat | Mitigation |
-|--------|-----------|
-| Secret leakage via git commit | .gitignore + pre-commit awareness |
-| Malicious image in registry | Image tagged to git SHA; pull-only deploy token |
-| Privilege escalation in container | SecurityContext + PSA baseline |
-| Pipeline credential theft | Protected + masked CI variables |
-| Reviewer over-permission | Guest role only; no CI variable visibility |
-| Cluster credential leakage | kubeconfig never shared; base64+masked in CI only |
-| Stale reviewer access | Expiry dates on all reviewer tokens |
-
----
-
-*This document should be reviewed before sharing access with any external party.*
+### .envrc Unencrypted
+Risk: Secrets stored in plaintext on disk.
+Mitigation: Local developer machine only, gitignored.
+Production fix: HashiCorp Vault or cloud KMS.

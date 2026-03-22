@@ -1,0 +1,10 @@
+# Copy to backend.hcl and fill in your values
+# Usage: terraform init -backend-config=backend.hcl
+
+
+address        = "http://YOUR_GITLAB_IP/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-terraform-demo"
+lock_address   = "http://YOUR_GITLAB_IP/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-terraform-demo/lock"
+unlock_address = "http://YOUR_GITLAB_IP/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-terraform-demo/lock"
+lock_method    = "POST"
+unlock_method  = "DELETE"
+retry_wait_min = 5

@@ -11,7 +11,7 @@ const services = [
   { name: 'Kubernetes Cluster',    status: 'HEALTHY',  detail: 'kind v1.29 · 2 nodes'        },
   { name: 'GitLab CI/CD',          status: 'HEALTHY',  detail: 'Pipeline #' + BUILD_SHA.slice(0,6) },
   { name: 'Container Registry',    status: 'HEALTHY',  detail: 'gitlab.com registry'          },
-  { name: 'Nginx Ingress',         status: 'HEALTHY',  detail: 'ingress-nginx · active'       },
+  { name: 'Traefik v3',         status: 'HEALTHY',  detail: 'traefik v3 · active'       },
   { name: 'Prometheus',            status: 'HEALTHY',  detail: 'kube-prometheus-stack'        },
   { name: 'Grafana',               status: 'HEALTHY',  detail: 'dashboards ready'             },
 ]

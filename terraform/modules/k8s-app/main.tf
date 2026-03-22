@@ -63,7 +63,7 @@ resource "kubernetes_secret" "registry_auth" {
     ".dockerconfigjson" = jsonencode({
       auths = {
         # Local GitLab CE Container Registry — port 5050
-        "192.168.2.2:5050" = {
+        (var.registry_host) = {
           username = var.registry_username
           password = var.registry_password
           auth     = base64encode("${var.registry_username}:${var.registry_password}")

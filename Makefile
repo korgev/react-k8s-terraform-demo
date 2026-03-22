@@ -38,7 +38,7 @@ help: ## Show this help message
 .PHONY: check-tools
 check-tools: ## Verify all required tools are installed
 	@echo -e "$(CYAN)Checking required tools...$(RESET)"
-	@for tool in git docker terraform kind kubectl helm ngrok; do \
+	@for tool in git docker terraform kubectl helm ngrok; do \
 		if command -v $$tool &>/dev/null; then \
 			echo -e "  $(GREEN)✅ $$tool$(RESET) ($$($$tool version 2>/dev/null | head -1 || echo 'ok'))"; \
 		else \
@@ -49,7 +49,7 @@ check-tools: ## Verify all required tools are installed
 .PHONY: install-tools
 install-tools: ## Install all tools via Homebrew (macOS only)
 	@echo -e "$(CYAN)Installing tools via Homebrew...$(RESET)"
-	brew install git kind kubectl helm ngrok/ngrok/ngrok
+	brew install git kubectl helm ngrok/ngrok/ngrok
 	brew install --cask orbstack
 	@echo -e "$(GREEN)✅ Done. Run 'make check-tools' to verify.$(RESET)"
 
@@ -81,7 +81,7 @@ check-env: ## Check required environment variables are set
 .PHONY: tf-init
 tf-init: ## Terraform: initialise providers and modules
 	@echo -e "$(CYAN)Initialising Terraform...$(RESET)"
-	cd $(TF_DIR) && terraform init -upgrade
+	cd $(TF_DIR) && terraform init -upgrade -backend-config=backend.hcl
 
 .PHONY: tf-plan
 tf-plan: check-env ## Terraform: show planned changes
@@ -91,7 +91,7 @@ tf-plan: check-env ## Terraform: show planned changes
 .PHONY: tf-apply
 tf-apply: check-env ## Terraform: provision cluster + deploy app + monitoring
 	@echo -e "$(CYAN)Applying Terraform (this takes ~5 minutes)...$(RESET)"
-	cd $(TF_DIR) && terraform apply -auto-approve
+	cd $(TF_DIR) && terraform apply
 	@echo ""
 	@$(MAKE) post-apply
 
@@ -99,7 +99,7 @@ tf-apply: check-env ## Terraform: provision cluster + deploy app + monitoring
 tf-destroy: ## Terraform: destroy everything (cluster + all resources)
 	@echo -e "$(AMBER)⚠️  This will DESTROY the cluster and all resources.$(RESET)"
 	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
-	cd $(TF_DIR) && terraform destroy -auto-approve
+	cd $(TF_DIR) && terraform destroy
 
 .PHONY: tf-output
 tf-output: ## Terraform: show all output values
@@ -148,7 +148,7 @@ k8s-status: ## Show full cluster status (nodes, pods, ingress)
 	echo -e "\n$(CYAN)─── Monitoring Pods ─────────────────$(RESET)"; \
 	kubectl get pods -n monitoring; \
 	echo -e "\n$(CYAN)─── Ingress Controller ──────────────$(RESET)"; \
-	kubectl get pods -n ingress-nginx
+	kubectl get pods -n traefik
 
 .PHONY: k8s-logs
 k8s-logs: ## Tail logs from the React app pods
@@ -228,12 +228,13 @@ share: ## Expose app publicly via ngrok (for reviewer)
 	@echo -e "$(CYAN)Starting ngrok tunnel on port 80...$(RESET)"
 	@echo -e "$(AMBER)Copy the https:// URL and share it with the reviewer$(RESET)"
 	@echo -e "$(AMBER)Keep this terminal open while reviewer is checking$(RESET)\n"
-	ngrok http 80
+	ngrok http --domain=mervin-tetrahydric-dwayne.ngrok-free.dev 80
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────────
 .PHONY: clean-cluster
 clean-cluster: ## Delete the Kind cluster (keeps Terraform state)
-	kind delete cluster --name $(CLUSTER_NAME)
+	docker rm -f $(CLUSTER_NAME)-control-plane $(CLUSTER_NAME)-worker 2>/dev/null || true
+	docker network rm kind 2>/dev/null || true
 	@echo -e "$(GREEN)✅ Cluster deleted$(RESET)"
 
 .PHONY: clean-hosts

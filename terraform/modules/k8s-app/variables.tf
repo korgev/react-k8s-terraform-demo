@@ -22,9 +22,12 @@ variable "ingress_host" {
   default     = "webapp.local"
 }
 
-# ── Registry credentials ───────────────────────────────────────────────────────
-# Used to create the kubernetes.io/dockerconfigjson pull secret.
-# Injected via: export TF_VAR_registry_username / TF_VAR_registry_password
+variable "enable_catch_all_ingress" {
+  description = "When true, Ingress accepts all hostnames (no Host header matching). Required for ngrok free tier. Security trade-off documented in ARCHITECTURE.md."
+  type        = bool
+  default     = false
+}
+
 variable "registry_username" {
   description = "GitLab deploy token username (read_registry scope only)"
   type        = string
@@ -35,4 +38,10 @@ variable "registry_password" {
   description = "GitLab deploy token password"
   type        = string
   sensitive   = true
+}
+
+variable "registry_host" {
+  description = "Container registry host:port"
+  type        = string
+  default     = "192.168.2.2:5050"
 }

@@ -58,4 +58,5 @@ module "k8s_app" {
 
   registry_username = var.registry_username
   registry_password = var.registry_password
+  registry_host     = var.registry_host
 }

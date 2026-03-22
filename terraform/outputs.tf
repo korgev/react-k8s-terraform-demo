@@ -46,7 +46,7 @@ output "next_steps" {
     open http://grafana.local  (admin / your grafana password)
 
   Step 4 — Public URL for reviewer:
-    ngrok http 80
+    ngrok http --domain=YOUR_STATIC_DOMAIN.ngrok-free.dev 80
 
   EOT
 }
