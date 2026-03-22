@@ -276,3 +276,12 @@ validate: ## Run pre-flight + post-deploy validation checks
 .PHONY: token-setup
 token-setup: ## Interactive guide: create GitLab deploy token + K8s pull secret
 	@bash scripts/deploy-token-setup.sh
+
+.PHONY: fix-registry
+fix-registry: ## Fix GitLab CE registry HSTS (run after gitlab-ctl reconfigure)
+	@echo "Disabling HSTS on GitLab CE registry nginx..."
+	@multipass exec gitlab-ce -- sudo sed -i \
+		's/add_header Strict-Transport-Security "max-age=63072000";/add_header Strict-Transport-Security "max-age=0";/' \
+		/var/opt/gitlab/nginx/conf/service_conf/gitlab-registry.conf
+	@multipass exec gitlab-ce -- sudo gitlab-ctl hup nginx
+	@echo "✅ Registry HSTS disabled — restart OrbStack if docker login still fails"
