@@ -56,7 +56,8 @@ module "k8s_app" {
   replicas     = var.replicas
   ingress_host = var.ingress_host
 
-  registry_username = var.registry_username
-  registry_password = var.registry_password
-  registry_host     = var.registry_host
+  registry_username        = var.registry_username
+  registry_password        = var.registry_password
+  registry_host            = var.registry_host
+  enable_catch_all_ingress = var.enable_catch_all_ingress
 }

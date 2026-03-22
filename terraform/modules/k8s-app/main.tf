@@ -116,7 +116,7 @@ resource "kubernetes_ingress_v1" "app" {
     ingress_class_name = "traefik"
 
     rule {
-      host = var.ingress_host
+      host = var.enable_catch_all_ingress ? null : var.ingress_host
       http {
         path {
           path      = "/"

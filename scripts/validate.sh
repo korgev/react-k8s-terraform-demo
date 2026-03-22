@@ -21,7 +21,7 @@ QUICK="${1:-}"
 
 # ─── Tools ────────────────────────────────────────────────────────────────────
 section "Required Tools"
-for tool in git docker terraform kind kubectl helm; do
+for tool in git docker terraform kubectl helm; do
   command -v "$tool" &>/dev/null && pass "$tool installed" || fail "$tool not found — see docs/SETUP.md"
 done
 command -v ngrok &>/dev/null && pass "ngrok installed" || warn "ngrok not found — needed for public reviewer URL"
@@ -92,13 +92,13 @@ if [ -f "$KUBECONFIG_PATH" ]; then
   [ "$node_count" -ge 2 ] && pass "$node_count nodes in cluster" || \
     warn "Only $node_count node(s) — expected 2 (control-plane + worker)"
 
-  not_ready=$(kubectl get nodes --no-headers 2>/dev/null | grep -v " Ready" | wc -l | tr -d ' ')
+  not_ready=$(kubectl get nodes --no-headers 2>/dev/null | grep -v " Ready" | wc -l || true | tr -d ' ')
   [ "$not_ready" -eq 0 ] && pass "All nodes Ready" || fail "$not_ready node(s) not Ready"
 
   # Ingress controller
-  ingress_running=$(kubectl get pods -n ingress-nginx --no-headers 2>/dev/null | grep "Running" | wc -l | tr -d ' ')
-  [ "${ingress_running:-0}" -ge 1 ] && pass "nginx-ingress controller Running" || \
-    warn "nginx-ingress not Running — may still be starting"
+  ingress_running=$(kubectl get pods -n traefik --no-headers 2>/dev/null | grep "Running" | wc -l | tr -d ' ')
+  [ "${ingress_running:-0}" -ge 1 ] && pass "Traefik ingress controller Running" || \
+    warn "Traefik not Running — may still be starting"
 fi
 
 # ─── Application ──────────────────────────────────────────────────────────────
