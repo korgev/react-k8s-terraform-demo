@@ -46,7 +46,7 @@ docker:build-push:
       artifacts: true
   before_script:
     - docker version --format "Docker {{.Client.Version}}"
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - echo "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "http://192.168.2.2:5050"
   script:
     - docker build --build-arg VITE_APP_VERSION="v1.0.$CI_PIPELINE_IID" --build-arg VITE_COMMIT_SHA="$CI_COMMIT_SHA" --build-arg VITE_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" --build-arg VITE_ENVIRONMENT="production" --build-arg VITE_CLUSTER_NAME="react-k8s-cluster" --label "org.opencontainers.image.source=$CI_PROJECT_URL" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" -t "$IMAGE_FULL" -t "$IMAGE_LATEST" app/
     - docker push "$IMAGE_FULL"
