@@ -56,3 +56,5 @@ kubeconfig-gke-only
 kubeconfig-gke-ci
 gke-ci-key.json
 gke-ci-key.json
+gke_gcloud_auth_plugin_cache
+terraform/gke-sa-key.json

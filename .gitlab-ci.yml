@@ -161,6 +161,8 @@ deploy:kubernetes-gcp:
     - job: docker:build-push-gcp
       artifacts: true
   before_script:
+    - export PATH="/opt/homebrew/share/google-cloud-sdk/bin:/opt/homebrew/bin:$PATH"
+    - export USE_GKE_GCLOUD_AUTH_PLUGIN=True
     - kubectl version --client
     - mkdir -p ~/.kube
     - echo "$GCP_SA_KEY" | base64 -D > /tmp/gcp-sa-key.json
@@ -227,6 +229,8 @@ rollback:kubernetes-gcp:
   when: manual
   allow_failure: false
   before_script:
+    - export PATH="/opt/homebrew/share/google-cloud-sdk/bin:/opt/homebrew/bin:$PATH"
+    - export USE_GKE_GCLOUD_AUTH_PLUGIN=True
     - mkdir -p ~/.kube
     - echo "$GCP_SA_KEY" | base64 -D > /tmp/gcp-sa-key.json
     - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
