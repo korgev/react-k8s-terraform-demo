@@ -161,8 +161,11 @@ deploy:kubernetes-gcp:
     - mkdir -p ~/.kube
     - echo "$GKE_KUBE_CONFIG" | base64 -D > ~/.kube/config
     - chmod 600 ~/.kube/config
+    - export KUBECONFIG=~/.kube/config
+    - kubectl config view --minify
     - kubectl cluster-info --request-timeout=10s
   script:
+    - export KUBECONFIG=~/.kube/config
     - export DEPLOY_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     - export IMAGE_TAG="$CI_COMMIT_SHORT_SHA"
     - export IMAGE_REPOSITORY="$GCP_REGISTRY"
