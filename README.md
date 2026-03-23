@@ -146,7 +146,7 @@ react-k8s-terraform-demo/
 Full step-by-step instructions are in **[docs/SETUP.md](docs/SETUP.md)**.
 ```bash
 # 1. Clone the repo
-git clone https://github.com/YOUR_USERNAME/react-k8s-terraform-demo.git
+git clone https://github.com/korgev/react-k8s-terraform-demo.git
 cd react-k8s-terraform-demo
 
 # 2. Install prerequisites (macOS)

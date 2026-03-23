@@ -14,7 +14,7 @@ Reviewer CANNOT: push code, modify CI variables, access cluster, push/delete ima
 ### Reviewer access instructions
 
 Source code — GitHub public mirror (no account needed):
-https://github.com/YOUR_USERNAME/react-k8s-terraform-demo
+https://github.com/korgev/react-k8s-terraform-demo
 
 Running app — always-on public URL:
 https://mervin-tetrahydric-dwayne.ngrok-free.dev

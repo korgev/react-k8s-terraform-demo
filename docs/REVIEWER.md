@@ -9,7 +9,7 @@ This document maps each task requirement to its implementation.
 | Resource | URL |
 |---|---|
 | Running app (public) | https://mervin-tetrahydric-dwayne.ngrok-free.dev |
-| Source code (GitHub) | https://github.com/YOUR_USERNAME/react-k8s-terraform-demo |
+| Source code (GitHub) | https://github.com/korgev/react-k8s-terraform-demo |
 | Local app | http://webapp.local |
 | Grafana | http://grafana.local (admin / see SETUP.md) |
 
