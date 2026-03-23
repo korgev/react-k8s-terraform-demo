@@ -46,7 +46,6 @@ variable "replicas" {
 }
 
 variable "registry_host" {
-  description = "GitLab CE Container Registry host:port (e.g. 192.168.2.2:5050)"
+  description = "GitLab CE Container Registry host:port (e.g. 192.168.2.2:5050) — set in terraform.tfvars"
   type        = string
-  default     = "192.168.2.2:5050"
 }

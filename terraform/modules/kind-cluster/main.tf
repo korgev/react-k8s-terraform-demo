@@ -89,11 +89,11 @@ resource "null_resource" "registry_config" {
   provisioner "local-exec" {
     command = <<-BASH
       for node in ${var.cluster_name}-control-plane ${var.cluster_name}-worker; do
-        docker exec "$node" mkdir -p /etc/containerd/certs.d/192.168.2.2:5050
-        docker exec "$node" sh -c 'cat > /etc/containerd/certs.d/192.168.2.2:5050/hosts.toml << TOML
-server = "http://192.168.2.2:5050"
+        docker exec "$node" mkdir -p /etc/containerd/certs.d/${var.registry_host}
+        docker exec "$node" sh -c 'cat > /etc/containerd/certs.d/${var.registry_host}/hosts.toml << TOML
+server = "http://${var.registry_host}"
 
-[host."http://192.168.2.2:5050"]
+[host."http://${var.registry_host}"]
   capabilities = ["pull", "resolve"]
   skip_verify = true
   plain-http = true

@@ -1,410 +1,390 @@
 # SETUP.md — Zero to Running: Complete Setup Guide
 
-> **Target audience:** Anyone cloning this repo from scratch on macOS (Apple Silicon / Intel).  
-> **Goal:** Running app at `http://webapp.local` in under 30 minutes.
+> **Target audience:** Anyone running this repo from scratch on macOS (Apple Silicon).
+> **Goal:** Running app at `http://webapp.local` + public URL in under 45 minutes.
 
 ---
 
 ## Prerequisites Checklist
 
-Before you begin, confirm you have:
-- [ ] macOS (Apple Silicon M1/M2/M3 or Intel)
+- [ ] macOS (Apple Silicon M1/M2/M3)
 - [ ] Admin access (for `sudo` commands)
 - [ ] Internet connection
-- [ ] ~4 GB free RAM
-- [ ] ~10 GB free disk space
+- [ ] ~8 GB free RAM (4GB for GitLab CE VM + 4GB for cluster)
+- [ ] ~20 GB free disk space
 
 ---
 
 ## Phase 1 — Install System Tools
 
-### 1.1 Homebrew (macOS package manager)
-
+### 1.1 Homebrew
 ```bash
-# Check if already installed
-brew --version
+brew --version || \
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# If not installed:
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Apple Silicon — add to PATH if needed
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc && source ~/.zshrc
+```
 
-# Apple Silicon only — add brew to PATH:
-echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
+### 1.2 Core tools
+```bash
+brew install git kubectl helm direnv
+brew install --cask orbstack
+
+# Add direnv hook to shell
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-### 1.2 Git
-
+### 1.3 Terraform
 ```bash
-# Check if installed
-git --version
-
-# Install if missing
-brew install git
-
-# Configure your identity (required for commits)
-git config --global user.name  "Your Name"
-git config --global user.email "your@email.com"
-
-# Verify
-git config --global --list
-```
-
-### 1.3 OrbStack (Docker runtime — replaces Docker Desktop)
-
-```bash
-# Install OrbStack
-brew install --cask orbstack
-
-# Launch OrbStack (first time — opens a small menu-bar app)
-open -a OrbStack
-
-# Wait ~30 seconds for it to start, then verify Docker CLI works:
-docker version
-docker run --rm hello-world
-```
-
-> **Why OrbStack?** It is faster and lighter than Docker Desktop on Apple Silicon,
-> uses less RAM, and provides the exact same `docker` CLI interface.
-> The reviewer needs only OrbStack installed to reproduce everything.
-
-### 1.4 Terraform
-
-```bash
-# Check if already installed (you mentioned it is)
-terraform version
-
-# If you need to install or upgrade:
 brew tap hashicorp/tap
 brew install hashicorp/tap/terraform
 
-# Verify
 terraform version
 # Expected: Terraform v1.7.x or higher
 ```
 
-### 1.5 Kind (Kubernetes in Docker)
-
-```bash
-brew install kind
-
-# Verify
-kind version
-# Expected: kind v0.22.x or higher
-```
-
-### 1.6 kubectl (Kubernetes CLI)
-
-```bash
-brew install kubectl
-
-# Verify
-kubectl version --client
-```
-
-### 1.7 Helm (Kubernetes package manager)
-
-```bash
-brew install helm
-
-# Verify
-helm version
-```
-
-### 1.8 ngrok (public URL for reviewer)
-
+### 1.4 ngrok
 ```bash
 brew install ngrok/ngrok/ngrok
 
-# Sign up free at https://ngrok.com → copy your authtoken
+# Sign up free at https://ngrok.com — copy authtoken from dashboard
 ngrok config add-authtoken YOUR_TOKEN_HERE
-
-# Verify
-ngrok version
 ```
 
-### Final check — all tools installed
+> **Note:** Kind CLI is NOT required. The Terraform `tehcyx/kind` provider
+> manages the cluster directly via Docker — no `kind` binary needed.
 
+### 1.5 Verify all tools
 ```bash
-echo "=== Tool Versions ===" && \
-git --version && \
-docker version --format '{{.Client.Version}}' && \
-terraform version | head -1 && \
-kind version && \
-kubectl version --client --short && \
-helm version --short && \
-ngrok version
+for tool in git docker terraform kubectl helm ngrok direnv; do
+  command -v $tool && echo "✅ $tool" || echo "❌ $tool missing"
+done
 ```
 
 ---
 
-## Phase 2 — GitLab Account Setup
+## Phase 2 — GitLab CE on Multipass VM
 
-### 2.1 Create GitLab account
+GitLab CE runs on a local Ubuntu VM managed by Multipass. This provides a
+self-hosted Git server, Container Registry, CI/CD pipelines, and Terraform
+HTTP remote state backend — all on your laptop.
 
-1. Go to [https://gitlab.com/users/sign_up](https://gitlab.com/users/sign_up)
-2. Create a free account
-3. Confirm your email
-
-### 2.2 Add SSH key to GitLab
-
+### 2.1 Install Multipass
 ```bash
-# Generate SSH key (if you don't have one)
-ssh-keygen -t ed25519 -C "your@email.com" -f ~/.ssh/id_ed25519
+brew install --cask multipass
+multipass version
+```
 
-# Copy public key to clipboard
+### 2.2 Create the GitLab CE VM
+```bash
+multipass launch --name gitlab-ce \
+  --cpus 2 \
+  --memory 4G \
+  --disk 20G \
+  24.04
+
+multipass list
+# Expected: gitlab-ce  Running  192.168.x.x
+```
+
+### 2.3 Install GitLab CE
+```bash
+multipass exec gitlab-ce -- bash << 'EOF'
+sudo apt-get update -y
+sudo apt-get install -y curl openssh-server ca-certificates tzdata
+curl -fsSL https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+sudo EXTERNAL_URL="http://$(hostname -I | awk '{print $1}')" apt-get install -y gitlab-ce
+
+# Add 4GB swap (required on 4GB RAM VM)
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+EOF
+```
+
+Wait ~5 minutes, then verify:
+```bash
+multipass exec gitlab-ce -- sudo gitlab-ctl status
+```
+
+### 2.4 Get initial root password
+```bash
+multipass exec gitlab-ce -- \
+  sudo cat /etc/gitlab/initial_root_password | grep Password:
+```
+
+Open `http://192.168.2.2` → login as `root` → set new password → create your user.
+
+### 2.5 Fix GitLab CE registry HSTS
+
+GitLab CE enables HSTS on the registry by default — this breaks Docker HTTP access.
+Run this after every `gitlab-ctl reconfigure`:
+```bash
+make fix-registry
+```
+
+### 2.6 Create GitLab project
+
+1. GitLab → **New project** → **Create blank project**
+2. Name: `react-k8s-terraform-demo`
+3. Visibility: **Private**
+4. Uncheck "Initialize with README"
+
+### 2.7 Add SSH key
+```bash
+ssh-keygen -t ed25519 -C "your@email.com" -f ~/.ssh/id_ed25519
 cat ~/.ssh/id_ed25519.pub | pbcopy
 ```
 
-4. Go to GitLab → **Profile** → **SSH Keys** → paste and save
-5. Test:
+GitLab → **Profile** → **SSH Keys** → paste and save.
 ```bash
-ssh -T git@gitlab.com
+# Test connection
+ssh -T git@192.168.2.2 -o StrictHostKeyChecking=no
 # Expected: Welcome to GitLab, @yourusername!
 ```
 
-### 2.3 Create a new GitLab project
-
-1. Click **New project** → **Create blank project**
-2. Name it: `react-k8s-terraform-demo`
-3. Set to **Private**
-4. Uncheck "Initialize repository with README" (we'll push our own)
-5. Click **Create project**
-
 ---
 
-## Phase 3 — Push Code to GitLab
-
-### 3.1 Clone this repository and set remote
-
+## Phase 3 — Clone and Push Code
 ```bash
-# Navigate to where you want the project
-cd ~/projects  # or wherever you prefer
-
-# Clone YOUR new GitLab repo (empty)
-git clone git@gitlab.com:YOUR_USERNAME/react-k8s-terraform-demo.git
+cd ~/Desktop
+git clone git@192.168.2.2:YOUR_USERNAME/react-k8s-terraform-demo.git
 cd react-k8s-terraform-demo
-
-# Copy all project files into this folder
-# (or if you downloaded the zip, extract it here)
-```
-
-If you downloaded this project as a zip:
-
-```bash
-cd react-k8s-terraform-demo
-git init
-git remote add origin git@gitlab.com:YOUR_USERNAME/react-k8s-terraform-demo.git
 git add .
-git commit -m "feat: initial project setup — Terraform + React + GitLab CI"
+git commit -m "feat: initial project setup"
 git push -u origin main
 ```
 
 ---
 
-## Phase 4 — Configure GitLab CI/CD Variables
+## Phase 4 — Configure Secrets and Environment
 
-These are secrets that the CI/CD pipeline needs. They are **never** stored in code.
-
-1. Go to your GitLab project → **Settings** → **CI/CD** → **Variables** → **Expand**
-2. Add the following variables:
-
-| Key | Value | Type | Protected | Masked |
-|-----|-------|------|-----------|--------|
-| `KUBE_CONFIG` | *(see step 4.2 below)* | Variable | ✅ | ✅ |
-
-> **Note:** `CI_REGISTRY_USER` and `CI_REGISTRY_PASSWORD` are automatically provided by
-> GitLab for the Container Registry — you do **not** need to add these manually.
-
-### 4.2 Generate KUBE_CONFIG value
-
-After running Terraform (Phase 5), encode your kubeconfig:
-
+### 4.1 Create .envrc from template
 ```bash
-# Run this after terraform apply (Phase 5)
-cat kubeconfig | base64 | tr -d '\n' | pbcopy
-# Paste the clipboard value as the KUBE_CONFIG variable in GitLab
+cp scripts/envrc.template .envrc
 ```
+
+Edit `.envrc` with your values:
+```bash
+export TF_VAR_grafana_admin_password="YourSecurePassword123"
+export TF_VAR_registry_username="k8s-deploy-token"    # set after Phase 6
+export TF_VAR_registry_password="your-deploy-token"   # set after Phase 6
+export TF_HTTP_USERNAME="your-gitlab-username"
+export TF_HTTP_PASSWORD="your-personal-access-token"  # GitLab → Profile → Access Tokens
+export KUBECONFIG="/Users/YOUR_USERNAME/Desktop/react-k8s-terraform-demo/kubeconfig"
+export HELM_REPOSITORY_CACHE="$HOME/Desktop/react-k8s-terraform-demo/.helm-cache"
+export HELM_REPOSITORY_CONFIG="$HOME/Desktop/react-k8s-terraform-demo/.helm-repositories.yaml"
+```
+```bash
+direnv allow .
+# Expected: ✅ Environment loaded — TF_VAR_* variables set
+```
+
+### 4.2 Configure Terraform backend
+```bash
+cp terraform/backend.hcl.example terraform/backend.hcl
+```
+
+Edit `terraform/backend.hcl`:
+```hcl
+address        = "http://192.168.2.2/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-terraform-demo"
+lock_address   = "http://192.168.2.2/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-terraform-demo/lock"
+unlock_address = "http://192.168.2.2/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-terraform-demo/lock"
+lock_method    = "POST"
+unlock_method  = "DELETE"
+retry_wait_min = 5
+```
+
+> Find your project ID: GitLab → project page → **Settings** → **General** → Project ID.
 
 ---
 
 ## Phase 5 — Provision Kubernetes Cluster with Terraform
 
+### 5.1 Configure tfvars
+```bash
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+```
+
+Edit `terraform/terraform.tfvars`:
+```hcl
+cluster_name             = "react-k8s-cluster"
+kubernetes_version       = "v1.32.0"
+app_name                 = "react-app"
+namespace                = "webapp"
+ingress_host             = "webapp.local"
+enable_catch_all_ingress = true
+image_repository         = "192.168.2.2:5050/YOUR_USERNAME/react-k8s-terraform-demo/react-app"
+replicas                 = 2
+registry_host            = "192.168.2.2:5050"
+```
+
+### 5.2 Initialise and apply
 ```bash
 cd terraform
-
-# Copy and edit variables
-cp terraform.tfvars.example terraform.tfvars
-```
-
-Edit `terraform.tfvars`:
-
-```hcl
-cluster_name       = "react-k8s-cluster"
-kubernetes_version = "v1.29.2"
-app_name           = "react-app"
-namespace          = "webapp"
-image_repository   = "registry.gitlab.com/YOUR_USERNAME/react-k8s-terraform-demo/react-app"
-image_tag          = "latest"
-replicas           = 2
-```
-
-Set sensitive variables via environment (never in tfvars file):
-
-```bash
-export TF_VAR_grafana_admin_password="YourSecurePassword123"
-export TF_VAR_registry_username="deploy-token-username"   # set after step 6.1
-export TF_VAR_registry_password="deploy-token-password"   # set after step 6.1
-```
-
-Initialise and apply:
-
-```bash
-terraform init
-
-# Preview what will be created
+terraform init -backend-config=backend.hcl
 terraform plan
-
-# Create everything (~5 minutes)
 terraform apply
-# Type 'yes' when prompted
+# Type 'yes' when prompted — takes ~5 minutes
 ```
 
 Expected output:
 ```
-Apply complete! Resources: 12 added, 0 changed, 0 destroyed.
+Apply complete! Resources: 13 added, 0 changed, 0 destroyed.
 
 Outputs:
-  cluster_name    = "react-k8s-cluster"
-  kubeconfig_path = "/path/to/kubeconfig"
-  app_url         = "http://webapp.local"
-  grafana_url     = "http://localhost:3000"
+  app_url      = "http://webapp.local"
+  cluster_name = "react-k8s-cluster"
+  grafana_url  = "http://grafana.local"
 ```
 
-### Verify cluster is healthy
-
+### 5.3 Verify cluster
 ```bash
-export KUBECONFIG=../kubeconfig
-
 kubectl get nodes
-# NAME                           STATUS   ROLES           AGE
-# react-k8s-cluster-control-plane   Ready    control-plane   2m
-# react-k8s-cluster-worker          Ready    <none>          2m
+# react-k8s-cluster-control-plane   Ready   control-plane
+# react-k8s-cluster-worker           Ready   <none>
 
 kubectl get pods -A
-# All pods should be Running or Completed
+# All pods Running or Completed
 ```
 
 ---
 
-## Phase 6 — GitLab Deploy Token (for K8s image pull)
-
-### 6.1 Create a deploy token
+## Phase 6 — GitLab Deploy Token
 
 1. GitLab project → **Settings** → **Repository** → **Deploy tokens**
 2. Click **Add token**:
-   - Name: `k8s-image-pull`
-   - Expiry: set 90 days from today
+   - Name: `k8s-deploy-token`
+   - Expiry: 90 days from today
    - Scopes: ✅ `read_registry` only
-3. Click **Create deploy token**
-4. **Copy both username and password immediately** (shown only once)
-
+3. **Copy username and password immediately** (shown only once)
 ```bash
-# Set these and re-run terraform apply to create the K8s pull secret
-export TF_VAR_registry_username="YOUR_DEPLOY_TOKEN_USERNAME"
-export TF_VAR_registry_password="YOUR_DEPLOY_TOKEN_PASSWORD"
-terraform apply
+# Update .envrc with the token values, then re-apply
+direnv allow .
+cd terraform && terraform apply
 ```
-
-### 6.2 Add KUBE_CONFIG to GitLab CI/CD
-
-```bash
-# Encode kubeconfig (run from project root)
-cat kubeconfig | base64 | tr -d '\n' | pbcopy
-```
-
-Go to **Settings → CI/CD → Variables** → add `KUBE_CONFIG` (protected + masked).
 
 ---
 
-## Phase 7 — Local DNS Setup
+## Phase 7 — GitLab CI/CD Variables
 
+1. GitLab project → **Settings** → **CI/CD** → **Variables** → **Expand**
+2. Add:
+
+| Key | Protected | Masked |
+|-----|-----------|--------|
+| `KUBE_CONFIG` | ✅ | ✅ |
+
+Generate value:
 ```bash
-# Add local hostnames (required to access app via browser)
-echo "127.0.0.1 webapp.local" | sudo tee -a /etc/hosts
-echo "127.0.0.1 grafana.local" | sudo tee -a /etc/hosts
+cat kubeconfig | base64 | tr -d '\n' | pbcopy
+# Paste clipboard as KUBE_CONFIG value in GitLab
+```
 
-# Verify
+> `CI_REGISTRY_USER` and `CI_REGISTRY_PASSWORD` are provided automatically — do NOT add them.
+
+---
+
+## Phase 8 — Local DNS Setup
+```bash
+echo "127.0.0.1 webapp.local grafana.local" | sudo tee -a /etc/hosts
 ping -c1 webapp.local
 ```
 
 ---
 
-## Phase 8 — Trigger CI/CD Pipeline
-
+## Phase 9 — Register GitLab Runner
 ```bash
-# Push any change to trigger the pipeline
-git add .
-git commit -m "feat: trigger initial deployment"
+brew install gitlab-runner
+brew services start gitlab-runner
+
+# Get runner token: GitLab → Settings → CI/CD → Runners → New project runner
+gitlab-runner register \
+  --url http://192.168.2.2 \
+  --token YOUR_RUNNER_TOKEN \
+  --executor shell \
+  --name mac-shell-runner \
+  --non-interactive
+```
+
+---
+
+## Phase 10 — Trigger CI/CD Pipeline
+```bash
+git commit --allow-empty -m "ci: trigger initial deployment"
 git push origin main
 ```
 
-Watch the pipeline:
-1. GitLab → your project → **CI/CD** → **Pipelines**
-2. Click the running pipeline to watch live logs
-3. All stages should go green ✅
+Watch: GitLab → project → **CI/CD** → **Pipelines**
+
+All 4 stages green: `test:build` → `docker:build-push` → `deploy:kubernetes`
 
 ---
 
-## Phase 9 — Verify Everything Works
-
+## Phase 11 — Verify Everything
 ```bash
-# 1. Check pods are running
-kubectl get pods -n webapp
+bash scripts/validate.sh
+# ✅ ALL CHECKS PASSED — ready to share!
 
-# 2. Check ingress
-kubectl get ingress -n webapp
-
-# 3. Open the app
 open http://webapp.local
-
-# 4. Open Grafana
-open http://grafana.local
-# Login: admin / (your TF_VAR_grafana_admin_password)
+open http://grafana.local   # admin / your grafana password
 ```
 
 ---
 
-## Phase 10 — Share with Reviewer via ngrok
+## Phase 12 — Public Access via ngrok
 
+ngrok runs as a permanent launchd service — starts automatically on login, no terminal needed.
 ```bash
-# Expose the local app publicly
-ngrok http 80
+# ngrok.yml already configured with static domain
+# Just load the launchd service:
+launchctl load ~/Library/LaunchAgents/com.ngrok.react-k8s.plist
 
-# Output example:
-# Forwarding  https://abc123.ngrok-free.app -> http://localhost:80
-#
-# Share the https://abc123.ngrok-free.app URL with the reviewer
+# Verify tunnel
+curl -s http://localhost:4040/api/tunnels | python3 -c "
+import json,sys
+for t in json.load(sys.stdin)['tunnels']:
+    print(t['name'], '->', t['public_url'])
+"
 ```
 
-> **Note:** The ngrok URL is temporary. For the reviewer session, keep ngrok running.
+Public URL: **https://mervin-tetrahydric-dwayne.ngrok-free.dev**
 
 ---
 
-## Cleanup
-
-When you are done with the task:
-
+## Teardown — Complete Cleanup
 ```bash
-# Destroy all Kubernetes resources and the cluster
-cd terraform
-terraform destroy
+# 1. Destroy Kubernetes infrastructure
+cd terraform && terraform destroy
 
-# Stop OrbStack (optional)
-# Right-click OrbStack in menu bar → Quit
+# 2. Stop ngrok launchd service
+launchctl unload ~/Library/LaunchAgents/com.ngrok.react-k8s.plist
+rm ~/Library/LaunchAgents/com.ngrok.react-k8s.plist
 
-# Remove local DNS entries
+# 3. Stop and unregister GitLab runner
+brew services stop gitlab-runner
+gitlab-runner unregister --all-runners
+
+# 4. Remove GitLab CE VM
+multipass delete gitlab-ce && multipass purge
+
+# 5. Remove DNS entries
 sudo sed -i '' '/webapp.local/d' /etc/hosts
 sudo sed -i '' '/grafana.local/d' /etc/hosts
+
+# 6. Uninstall tools (optional)
+brew uninstall gitlab-runner helm ngrok terraform direnv
+brew uninstall --cask orbstack multipass
+
+# 7. Remove project files
+rm -rf ~/Desktop/react-k8s-terraform-demo
+
+# 8. Remove Docker registry credentials
+docker logout 192.168.2.2:5050
 ```
 
 ---
@@ -414,51 +394,37 @@ sudo sed -i '' '/grafana.local/d' /etc/hosts
 | Issue | Solution |
 |-------|----------|
 | `docker: command not found` | Restart terminal after OrbStack install |
-| `kind: cluster already exists` | `kind delete cluster --name react-k8s-cluster` |
-| `terraform apply` timeout | Re-run `terraform apply` — Kind cluster creation can be slow |
-| Ingress not reachable | Wait 60s after cluster creation for ingress controller to start |
-| Pipeline fails at deploy | Check KUBE_CONFIG variable is set and correctly base64 encoded |
-| Image pull errors | Verify deploy token has `read_registry` scope |
+| `terraform apply` timeout | Re-run `terraform apply` — Kind creation can be slow |
+| Ingress not reachable | Wait 60s after apply for Traefik to start |
+| Pipeline fails at docker login | Run `make fix-registry` — GitLab CE HSTS issue |
+| Image pull errors in K8s | Verify deploy token has `read_registry` scope |
+| Pipeline fails at deploy | Check KUBE_CONFIG is set, protected + masked |
+| `direnv: command not found` | Run `source ~/.zshrc` after installing direnv |
+| ngrok shows wrong URL | Check `cat ~/Library/Application\ Support/ngrok/ngrok.yml` |
 
 ---
 
-*For detailed architecture decisions, see [ARCHITECTURE.md](ARCHITECTURE.md)*  
-*For security posture, see [SECURITY.md](SECURITY.md)*  
-*For day-2 operations, see [RUNBOOK.md](RUNBOOK.md)*
-
----
-
-## Important: Terraform vs CI/CD Ownership
-
-Understanding what each tool manages prevents confusion:
+## Terraform vs CI/CD Ownership
 
 | Resource | Managed By | Why |
 |----------|-----------|-----|
-| Kind cluster | Terraform | Infrastructure — stable, rarely changes |
-| Namespace | Terraform | Infrastructure |
+| Kind cluster | Terraform | Infrastructure — stable |
+| Namespace, SA, pull secret | Terraform | Infrastructure |
 | Service, Ingress, HPA, PDB | Terraform | Infrastructure |
-| ServiceAccount + Pull Secret | Terraform | Infrastructure |
-| Nginx Ingress Controller | Terraform (Helm) | Shared cluster service |
+| Traefik v3 | Terraform (Helm) | Shared cluster service |
 | Prometheus + Grafana | Terraform (Helm) | Shared cluster service |
-| **Deployment** | **GitLab CI/CD** | Changes every commit — owns the image |
+| **Deployment** | **GitLab CI/CD** | Changes every commit |
 
-**Why the Deployment is NOT in Terraform:**
-
-Terraform runs **before** CI/CD has pushed any image. If Terraform created
-the Deployment, it would reference an image that doesn't exist yet → pods
-would be in `ImagePullBackOff` immediately.
-
-The solution: Terraform creates everything except the Deployment. The first
-CI/CD pipeline run creates the Deployment via `kubectl apply`. This is called
-the **infra/app split** and is standard in production GitOps setups.
-
-**First-time sequence:**
-
+**Why Deployment is NOT in Terraform:** Terraform runs before CI has pushed any image.
+If Terraform created the Deployment, pods would be in `ImagePullBackOff` immediately.
+CI creates the Deployment on the first pipeline run.
 ```
-make tf-apply          → cluster + namespace + service + ingress + monitoring
-                          (no Deployment yet — that's OK)
-git push origin main   → triggers pipeline → builds image → pushes to registry
-                          → kubectl apply kubernetes/deployment.yaml
-                          → Deployment created for the first time ✅
+make tf-apply        → cluster + infrastructure (no Deployment yet)
+git push → main      → pipeline builds image → kubectl apply → Deployment created ✅
 ```
 
+---
+
+*See [ARCHITECTURE.md](ARCHITECTURE.md) for deep-dive architecture decisions*
+*See [SECURITY.md](SECURITY.md) for full security posture*
+*See [REVIEWER.md](REVIEWER.md) for task compliance evidence*

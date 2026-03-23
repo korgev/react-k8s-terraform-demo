@@ -74,7 +74,7 @@ fi
 
 # ─── Kind Cluster ─────────────────────────────────────────────────────────────
 section "Kind Cluster"
-if kind get clusters 2>/dev/null | grep -q "react-k8s-cluster"; then
+if docker ps --format "{{.Names}}" 2>/dev/null | grep -q "react-k8s-cluster-control-plane"; then
   pass "Kind cluster 'react-k8s-cluster' exists"
 else
   warn "Kind cluster not found — run: make tf-apply"
@@ -192,7 +192,7 @@ if [ "$FAILED" -eq 0 ]; then
   echo -e "${GREEN}  ✅  ALL CHECKS PASSED — ready to share!${RESET}"
   echo -e "${GREEN}══════════════════════════════════════════════════${RESET}"
   echo ""
-  echo "  Next: make share  (starts ngrok tunnel for reviewer)"
+  echo "  Next: make share  (prints public reviewer URL)"
 else
   echo -e "${RED}══════════════════════════════════════════════════${RESET}"
   echo -e "${RED}  ❌  $FAILED CHECK(S) FAILED — fix above issues${RESET}"

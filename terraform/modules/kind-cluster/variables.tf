@@ -14,3 +14,8 @@ variable "kubeconfig_path" {
   type        = string
   default     = "../../kubeconfig"
 }
+
+variable "registry_host" {
+  description = "Container registry host:port for containerd insecure registry config"
+  type        = string
+}

@@ -8,7 +8,7 @@
 SHELL := /bin/bash
 
 # Project settings (override with: make apply CLUSTER_NAME=my-cluster)
-CLUSTER_NAME    ?= webapp-cluster
+CLUSTER_NAME    ?= react-k8s-cluster
 NAMESPACE       ?= webapp
 APP_NAME        ?= react-app
 KUBECONFIG_PATH ?= ./kubeconfig
@@ -199,7 +199,7 @@ app-docker-build: ## Build Docker image locally (for testing)
 
 .PHONY: app-docker-run
 app-docker-run: app-docker-build ## Build and run Docker image locally on port 8080
-	docker run --rm -p 8080:80 k8s-webapp:local &
+	docker run --rm -p 8080:8080 k8s-webapp:local &
 	@sleep 2 && open http://localhost:8080
 
 # ─── Monitoring ───────────────────────────────────────────────────────────────
@@ -224,11 +224,9 @@ open: ## Open app and Grafana in browser
 	@open http://grafana.local
 
 .PHONY: share
-share: ## Expose app publicly via ngrok (for reviewer)
-	@echo -e "$(CYAN)Starting ngrok tunnel on port 80...$(RESET)"
-	@echo -e "$(AMBER)Copy the https:// URL and share it with the reviewer$(RESET)"
-	@echo -e "$(AMBER)Keep this terminal open while reviewer is checking$(RESET)\n"
-	ngrok http --domain=mervin-tetrahydric-dwayne.ngrok-free.dev 80
+share: ## Print public app URL (ngrok launchd service must be running)
+	@echo -e "$(GREEN)Public URL: https://mervin-tetrahydric-dwayne.ngrok-free.dev$(RESET)"
+	@open https://mervin-tetrahydric-dwayne.ngrok-free.dev
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────────
 .PHONY: clean-cluster
@@ -252,7 +250,7 @@ clean-all: tf-destroy clean-hosts ## Destroy everything + clean /etc/hosts
 git-setup: ## Initialise git and push to GitLab (first time only)
 	@if [ -z "$(GITLAB_REMOTE)" ]; then \
 		echo -e "$(RED)❌ Set GITLAB_REMOTE first:$(RESET)"; \
-		echo -e "   make git-setup GITLAB_REMOTE=git@gitlab.com:YOUR_USERNAME/react-k8s-terraform-demo.git"; \
+		echo -e "   make git-setup GITLAB_REMOTE=git@192.168.2.2:rwx/react-k8s-terraform-demo.git"; \
 		exit 1; \
 	fi
 	git init
@@ -285,3 +283,7 @@ fix-registry: ## Fix GitLab CE registry HSTS (run after gitlab-ctl reconfigure)
 		/var/opt/gitlab/nginx/conf/service_conf/gitlab-registry.conf
 	@multipass exec gitlab-ce -- sudo gitlab-ctl hup nginx
 	@echo "✅ Registry HSTS disabled — restart OrbStack if docker login still fails"
+
+
+
+

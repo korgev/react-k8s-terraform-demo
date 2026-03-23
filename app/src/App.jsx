@@ -8,9 +8,9 @@ const ENVIRONMENT    = import.meta.env.VITE_ENVIRONMENT   || 'local'
 const CLUSTER_NAME   = import.meta.env.VITE_CLUSTER_NAME  || 'react-k8s-cluster'
 
 const services = [
-  { name: 'Kubernetes Cluster',    status: 'HEALTHY',  detail: 'kind v1.29 · 2 nodes'        },
+  { name: 'Kubernetes Cluster',    status: 'HEALTHY',  detail: 'kind v1.32 · 2 nodes'        },
   { name: 'GitLab CI/CD',          status: 'HEALTHY',  detail: 'Pipeline #' + BUILD_SHA.slice(0,6) },
-  { name: 'Container Registry',    status: 'HEALTHY',  detail: 'gitlab.com registry'          },
+  { name: 'Container Registry',    status: 'HEALTHY',  detail: 'GitLab CE · 192.168.2.2:5050'          },
   { name: 'Traefik v3',         status: 'HEALTHY',  detail: 'traefik v3 · active'       },
   { name: 'Prometheus',            status: 'HEALTHY',  detail: 'kube-prometheus-stack'        },
   { name: 'Grafana',               status: 'HEALTHY',  detail: 'dashboards ready'             },
@@ -81,6 +81,47 @@ export default function App() {
         </h1>
         <p className="hero__sub">Kubernetes · GitLab CI/CD · Terraform · Prometheus</p>
       </header>
+
+
+      {/* ── About ───────────────────────────────────── */}
+      <section className="section" aria-label="About this project">
+        <h2 className="section__heading">
+          <span className="section__line" />
+          About this project
+          <span className="section__line" />
+        </h2>
+        <div className="about">
+          <p className="about__text">
+            A production-grade infrastructure demo: this React app was built by GitLab CI,
+            packaged as a Docker image, pushed to a self-hosted registry, deployed to a
+            Kind Kubernetes cluster provisioned by Terraform, and exposed publicly via
+            Traefik v3 + ngrok — all running on a local MacBook. The deployment info
+            below reflects the actual CI pipeline that built and shipped this page.
+          </p>
+          <div className="about__stack">
+            <div className="about__item">
+              <span className="about__icon">⬡</span>
+              <span className="about__label">Provisioned with Terraform</span>
+              <span className="about__desc">Kind cluster, namespaces, RBAC, Ingress, HPA, PDB — all declared as code using reusable modules</span>
+            </div>
+            <div className="about__item">
+              <span className="about__icon">⬡</span>
+              <span className="about__label">Deployed via GitLab CI/CD</span>
+              <span className="about__desc">4-stage pipeline: lint → build → push to registry → deploy to K8s with auto-rollback on failure</span>
+            </div>
+            <div className="about__item">
+              <span className="about__icon">⬡</span>
+              <span className="about__label">Observed with Prometheus + Grafana</span>
+              <span className="about__desc">Full metrics stack via kube-prometheus-stack — pod health, resource usage, node metrics</span>
+            </div>
+            <div className="about__item">
+              <span className="about__icon">⬡</span>
+              <span className="about__label">Exposed via Traefik v3 + ngrok</span>
+              <span className="about__desc">Ingress controller routes traffic — static ngrok domain provides HTTPS public access without a cloud LB</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ── Service Grid ────────────────────────────── */}
       <section className="section" aria-label="Service status">

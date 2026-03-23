@@ -5,6 +5,7 @@ module "kind_cluster" {
   cluster_name       = var.cluster_name
   kubernetes_version = var.kubernetes_version
   kubeconfig_path    = "${path.root}/../kubeconfig"
+  registry_host      = var.registry_host
 }
 
 # Providers

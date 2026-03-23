@@ -13,7 +13,7 @@ Developer (macOS M-series)
     │   │ Pipeline Stages                 │
     │   │                                 │
     │   │ 1. test:build                   │
-    │   │    npm ci + eslint + vite build  │
+    │   │    npm ci + eslint (lint only)  │
     │   │         ↓                       │
     │   │ 2. docker:build-push            │
     │   │    docker build + push :SHA     │

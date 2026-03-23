@@ -45,8 +45,8 @@ output "next_steps" {
     open http://webapp.local
     open http://grafana.local  (admin / your grafana password)
 
-  Step 4 — Public URL for reviewer:
-    ngrok http --domain=YOUR_STATIC_DOMAIN.ngrok-free.dev 80
+  Step 4 — Public URL (ngrok launchd service — already running):
+    https://mervin-tetrahydric-dwayne.ngrok-free.dev
 
   EOT
 }

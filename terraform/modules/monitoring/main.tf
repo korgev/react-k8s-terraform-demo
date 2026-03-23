@@ -17,12 +17,12 @@ resource "kubernetes_namespace" "monitoring" {
     name = "monitoring"
     labels = {
       "app.kubernetes.io/managed-by"       = "terraform"
-      "pod-security.kubernetes.io/enforce" = "privileged"
+      "pod-security.kubernetes.io/enforce" = "privileged" # node-exporter requires host PID/network access
     }
   }
 }
 
-# kube-prometheus-stack v82.12.0
+# kube-prometheus-stack v72.6.2
 # Official chart from prometheus-community
 # Bundles: Prometheus Operator, Prometheus, Alertmanager,
 #          Grafana, node-exporter, kube-state-metrics
@@ -62,7 +62,7 @@ resource "kubernetes_ingress_v1" "grafana" {
     ingress_class_name = "traefik"
 
     rule {
-      host = "grafana.local"
+      host = var.grafana_host
       http {
         path {
           path      = "/"

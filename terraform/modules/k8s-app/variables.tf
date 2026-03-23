@@ -41,7 +41,6 @@ variable "registry_password" {
 }
 
 variable "registry_host" {
-  description = "Container registry host:port"
+  description = "Container registry host:port — set in terraform.tfvars"
   type        = string
-  default     = "192.168.2.2:5050"
 }

@@ -4,23 +4,27 @@
 
 | Resource | Access | Permissions | Expiry |
 |---|---|---|---|
-| GitLab project | Guest role | Read code, view pipelines | 7 days |
-| Container Registry | Deploy token | read_registry only | 90 days |
-| App URL | ngrok HTTPS | View running app | Permanent static domain |
-| Grafana | Ingress | Read dashboards | Session |
+| Source code | GitHub public mirror | Read only | Permanent |
+| Running app | ngrok HTTPS static domain | View app | Permanent |
+| Grafana | Ingress http://grafana.local | Read dashboards | Session |
+| Container Registry | Deploy token read_registry | Pull images only | 90 days |
 
 Reviewer CANNOT: push code, modify CI variables, access cluster, push/delete images.
 
-### Grant reviewer access
-```
-GitLab → Members → Invite → Guest → expiry: 7 days
-```
+### Reviewer access instructions
+
+Source code — GitHub public mirror (no account needed):
+https://github.com/YOUR_USERNAME/react-k8s-terraform-demo
+
+Running app — always-on public URL:
+https://mervin-tetrahydric-dwayne.ngrok-free.dev
+
+Grafana — add to /etc/hosts first (127.0.0.1 grafana.local):
+http://grafana.local  (admin / see SETUP.md)
 
 ### Revoke after review
-```
-GitLab → Members → remove
-GitLab → Deploy tokens → revoke
-```
+
+GitLab CE — Settings → Repository → Deploy tokens → Revoke
 
 ## Secrets Inventory
 

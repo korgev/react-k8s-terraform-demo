@@ -1,6 +1,6 @@
 output "grafana_url" {
   description = "Grafana URL via Ingress (requires grafana.local in /etc/hosts)"
-  value       = "http://grafana.local"
+  value       = "http://${var.grafana_host}"
 }
 
 output "prometheus_port_forward_cmd" {

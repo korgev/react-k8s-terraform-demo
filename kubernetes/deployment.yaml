@@ -42,7 +42,7 @@ spec:
       containers:
         - name: react-app
           image: "${IMAGE_REPOSITORY}:${IMAGE_TAG}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080

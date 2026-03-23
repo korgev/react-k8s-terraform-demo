@@ -28,7 +28,7 @@ resource "kubernetes_namespace" "app" {
       # monitoring=true enables Prometheus ServiceMonitor discovery
       "monitoring" = "true"
       # Pod Security Admission — baseline blocks privileged pods
-      "pod-security.kubernetes.io/enforce" = "privileged"
+      "pod-security.kubernetes.io/enforce" = "baseline"
       "pod-security.kubernetes.io/warn"    = "restricted"
     }
   }
@@ -97,7 +97,7 @@ resource "kubernetes_service" "app" {
 
 # ─── Ingress ──────────────────────────────────────────────────────────────────
 # Routes webapp.local → service/react-app:80
-# nginx-ingress controller installed separately in terraform/main.tf
+# Traefik v3 installed separately in terraform/main.tf
 resource "kubernetes_ingress_v1" "app" {
   metadata {
     name      = var.app_name
