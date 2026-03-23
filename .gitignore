@@ -49,3 +49,6 @@ terraform/react-k8s-cluster-config
 .helm-cache/
 .helm-repositories.yaml
 terraform/backend.hcl
+terraform/gcp-backend.hcl
+kubeconfig-gke
+kubeconfig-gke-real

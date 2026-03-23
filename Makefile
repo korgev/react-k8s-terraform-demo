@@ -287,3 +287,47 @@ fix-registry: ## Fix GitLab CE registry HSTS (run after gitlab-ctl reconfigure)
 
 
 
+
+# ─── GCP / GKE ────────────────────────────────────────────────────────────────
+.PHONY: gcp-init
+gcp-init: ## GCP: initialise Terraform providers (GCS backend)
+	@echo -e "$(CYAN)Initialising GCP Terraform...$(RESET)"
+	cd terraform/gcp && terraform init -reconfigure
+
+.PHONY: gcp-plan
+gcp-plan: ## GCP: show planned changes
+	@echo -e "$(CYAN)Planning GCP changes...$(RESET)"
+	cd terraform/gcp && terraform plan
+
+.PHONY: gcp-apply
+gcp-apply: check-env ## GCP: full deploy — phase 1 (cluster) then phase 2 (apps)
+	@echo -e "$(CYAN)Phase 1 — provisioning GKE cluster + Artifact Registry...$(RESET)"
+	cd terraform/gcp && terraform apply \
+		-target=module.gke_cluster \
+		-target=google_artifact_registry_repository.react_app
+	@echo -e "$(CYAN)Phase 2 — deploying app + monitoring to GKE...$(RESET)"
+	cd terraform/gcp && terraform apply
+
+.PHONY: gcp-destroy
+gcp-destroy: ## GCP: destroy all GCP resources
+	@echo -e "$(AMBER)⚠️  This will DESTROY all GCP resources and incur no further costs.$(RESET)"
+	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
+	cd terraform/gcp && terraform destroy
+
+.PHONY: gcp-output
+gcp-output: ## GCP: show all Terraform outputs
+	cd terraform/gcp && terraform output
+
+.PHONY: gcp-status
+gcp-status: ## GCP: show GKE cluster status
+	@export KUBECONFIG=kubeconfig-gke; \
+	echo -e "\n$(CYAN)─── Nodes ───────────────────────────$(RESET)"; \
+	kubectl get nodes -o wide; \
+	echo -e "\n$(CYAN)─── App Pods (webapp) ───────────────$(RESET)"; \
+	kubectl get pods -n webapp -o wide; \
+	echo -e "\n$(CYAN)─── Services ────────────────────────$(RESET)"; \
+	kubectl get svc -n webapp; \
+	echo -e "\n$(CYAN)─── Ingress ─────────────────────────$(RESET)"; \
+	kubectl get ingress -n webapp; \
+	echo -e "\n$(CYAN)─── Monitoring ──────────────────────$(RESET)"; \
+	kubectl get pods -n monitoring
