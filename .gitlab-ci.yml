@@ -13,13 +13,24 @@ default:
       - stuck_or_timeout_failure
 
 variables:
+  # ── On-prem (main branch) ──────────────────────────────────────────────────
   IMAGE_REPOSITORY: "$CI_REGISTRY_IMAGE/react-app"
-  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA"
-  IMAGE_FULL: "$CI_REGISTRY_IMAGE/react-app:$CI_COMMIT_SHORT_SHA"
-  IMAGE_LATEST: "$CI_REGISTRY_IMAGE/react-app:latest"
-  K8S_NAMESPACE: "webapp"
-  APP_NAME: "react-app"
+  IMAGE_SHA:        "$CI_REGISTRY_IMAGE/react-app:$CI_COMMIT_SHORT_SHA"
+  IMAGE_VERSION:    "$CI_REGISTRY_IMAGE/react-app:v1.0.$CI_PIPELINE_IID"
 
+  # ── GCP (feature/gke branch) ───────────────────────────────────────────────
+  GCP_REGION:       "us-central1"
+  GCP_PROJECT:      "react-k8s-demo"
+  GCP_REGISTRY:     "us-central1-docker.pkg.dev/react-k8s-demo/react-app/react-app"
+  GCP_IMAGE_SHA:    "us-central1-docker.pkg.dev/react-k8s-demo/react-app/react-app:$CI_COMMIT_SHORT_SHA"
+  GCP_IMAGE_VERSION:"us-central1-docker.pkg.dev/react-k8s-demo/react-app/react-app:v1.0.$CI_PIPELINE_IID"
+
+  # ── Shared ─────────────────────────────────────────────────────────────────
+  K8S_NAMESPACE:    "webapp"
+  APP_NAME:         "react-app"
+  APP_VERSION:      "v1.0.$CI_PIPELINE_IID"
+
+# ── Stage 1: lint (shared) ────────────────────────────────────────────────────
 test:build:
   stage: test
   before_script:
@@ -29,32 +40,41 @@ test:build:
     - npm ci --prefer-offline --no-audit
   script:
     - npm run lint
-    - VITE_APP_VERSION="v1.0.$CI_PIPELINE_IID" VITE_COMMIT_SHA="$CI_COMMIT_SHA" VITE_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" VITE_ENVIRONMENT="production" VITE_CLUSTER_NAME="react-k8s-cluster" npm run build
-    - echo "Build size $(du -sh dist/ | cut -f1)"
-  artifacts:
-    paths:
-      - app/dist/
-    expire_in: 1 hour
+    - echo "✅ Lint passed"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "feature/gke"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
+# ── Stage 2a: Docker build+push → on-prem GitLab registry ────────────────────
 docker:build-push:
   stage: docker
   needs:
     - job: test:build
-      artifacts: true
   before_script:
     - docker version --format "Docker {{.Client.Version}}"
-    - echo "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "http://192.168.2.2:5050"
+    - echo "$CI_REGISTRY_PASSWORD" | docker login \
+        --username "$CI_REGISTRY_USER" \
+        --password-stdin "http://$CI_REGISTRY"
   script:
-    - docker build --build-arg VITE_APP_VERSION="v1.0.$CI_PIPELINE_IID" --build-arg VITE_COMMIT_SHA="$CI_COMMIT_SHA" --build-arg VITE_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" --build-arg VITE_ENVIRONMENT="production" --build-arg VITE_CLUSTER_NAME="react-k8s-cluster" --label "org.opencontainers.image.source=$CI_PROJECT_URL" --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" -t "$IMAGE_FULL" -t "$IMAGE_LATEST" app/
-    - docker push "$IMAGE_FULL"
-    - docker push "$IMAGE_LATEST"
-    - echo "IMAGE_FULL=$IMAGE_FULL" >> build.env
-    - echo "IMAGE_TAG=$IMAGE_TAG" >> build.env
-    - echo "IMAGE_REPOSITORY=$IMAGE_REPOSITORY" >> build.env
-    - echo "APP_VERSION=v1.0.$CI_PIPELINE_IID" >> build.env
+    - |
+      docker build \
+        --build-arg VITE_APP_VERSION="$APP_VERSION" \
+        --build-arg VITE_COMMIT_SHA="$CI_COMMIT_SHA" \
+        --build-arg VITE_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --build-arg VITE_ENVIRONMENT="production" \
+        --build-arg VITE_CLUSTER_NAME="react-k8s-cluster" \
+        --label "org.opencontainers.image.source=$CI_PROJECT_URL" \
+        --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" \
+        --label "org.opencontainers.image.version=$APP_VERSION" \
+        -t "$IMAGE_SHA" \
+        -t "$IMAGE_VERSION" \
+        app/
+    - docker push "$IMAGE_SHA"
+    - docker push "$IMAGE_VERSION"
+    - echo "IMAGE_SHA=$IMAGE_SHA"         >> build.env
+    - echo "IMAGE_VERSION=$IMAGE_VERSION" >> build.env
+    - echo "APP_VERSION=$APP_VERSION"     >> build.env
   artifacts:
     reports:
       dotenv: build.env
@@ -62,6 +82,42 @@ docker:build-push:
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
+# ── Stage 2b: Docker build+push → GCP Artifact Registry ──────────────────────
+docker:build-push-gcp:
+  stage: docker
+  needs:
+    - job: test:build
+  before_script:
+    - docker version --format "Docker {{.Client.Version}}"
+    # gcloud auth configure-docker for Artifact Registry
+    - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+  script:
+    - |
+      docker build \
+        --build-arg VITE_APP_VERSION="$APP_VERSION" \
+        --build-arg VITE_COMMIT_SHA="$CI_COMMIT_SHA" \
+        --build-arg VITE_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --build-arg VITE_ENVIRONMENT="production-gcp" \
+        --build-arg VITE_CLUSTER_NAME="react-k8s-gke" \
+        --label "org.opencontainers.image.source=$CI_PROJECT_URL" \
+        --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" \
+        --label "org.opencontainers.image.version=$APP_VERSION" \
+        -t "$GCP_IMAGE_SHA" \
+        -t "$GCP_IMAGE_VERSION" \
+        app/
+    - docker push "$GCP_IMAGE_SHA"
+    - docker push "$GCP_IMAGE_VERSION"
+    - echo "GCP_IMAGE_SHA=$GCP_IMAGE_SHA"         >> build.env
+    - echo "GCP_IMAGE_VERSION=$GCP_IMAGE_VERSION" >> build.env
+    - echo "APP_VERSION=$APP_VERSION"             >> build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+    expire_in: 7 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "feature/gke"'
+
+# ── Stage 3a: Deploy → on-prem Kind cluster ───────────────────────────────────
 deploy:kubernetes:
   stage: deploy
   needs:
@@ -74,31 +130,69 @@ deploy:kubernetes:
     - chmod 600 ~/.kube/config
     - kubectl cluster-info --request-timeout=10s
   script:
-    - PREVIOUS_IMAGE=$(kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "none")
-    - echo "Previous image $PREVIOUS_IMAGE"
-    - echo "PREVIOUS_IMAGE=$PREVIOUS_IMAGE" >> rollback.env
     - export DEPLOY_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    - export IMAGE_TAG="$CI_COMMIT_SHORT_SHA"
     - envsubst < kubernetes/deployment.yaml > /tmp/deployment-rendered.yaml
     - kubectl apply -f /tmp/deployment-rendered.yaml
-    - kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=180s || (kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE" && exit 1)
+    - |
+      kubectl rollout status deployment/"$APP_NAME" \
+        -n "$K8S_NAMESPACE" --timeout=180s \
+      || (
+        echo "❌ Rollout failed — auto-rolling back"
+        kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE"
+        exit 1
+      )
     - kubectl get pods -n "$K8S_NAMESPACE" -l "app.kubernetes.io/name=$APP_NAME"
+    - echo "✅ Deployed $IMAGE_SHA"
   after_script:
     - kubectl get pods -n webapp --kubeconfig ~/.kube/config 2>/dev/null || true
-  artifacts:
-    reports:
-      dotenv: rollback.env
-    expire_in: 7 days
   environment:
-    name: production
-    url: http://webapp.local
+    name: production-onprem
+    url: https://mervin-tetrahydric-dwayne.ngrok-free.dev
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
+# ── Stage 3b: Deploy → GKE cluster ───────────────────────────────────────────
+deploy:kubernetes-gcp:
+  stage: deploy
+  needs:
+    - job: docker:build-push-gcp
+      artifacts: true
+  before_script:
+    - kubectl version --client
+    - mkdir -p ~/.kube
+    - echo "$GKE_KUBE_CONFIG" | base64 -D > ~/.kube/config
+    - chmod 600 ~/.kube/config
+    - kubectl cluster-info --request-timeout=10s
+  script:
+    - export DEPLOY_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    - export IMAGE_TAG="$CI_COMMIT_SHORT_SHA"
+    - export IMAGE_REPOSITORY="$GCP_REGISTRY"
+    - envsubst < kubernetes/deployment.yaml > /tmp/deployment-rendered.yaml
+    - kubectl apply -f /tmp/deployment-rendered.yaml
+    - |
+      kubectl rollout status deployment/"$APP_NAME" \
+        -n "$K8S_NAMESPACE" --timeout=180s \
+      || (
+        echo "❌ Rollout failed — auto-rolling back"
+        kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE"
+        exit 1
+      )
+    - kubectl get pods -n "$K8S_NAMESPACE" -l "app.kubernetes.io/name=$APP_NAME"
+    - echo "✅ Deployed $GCP_IMAGE_SHA to GKE"
+  after_script:
+    - kubectl get pods -n webapp --kubeconfig ~/.kube/config 2>/dev/null || true
+  environment:
+    name: production-gcp
+    url: http://34.71.85.1
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "feature/gke"'
+
+# ── Stage 4a: Rollback → on-prem ─────────────────────────────────────────────
 rollback:kubernetes:
   stage: rollback
   needs:
     - job: deploy:kubernetes
-      artifacts: true
   when: manual
   allow_failure: false
   before_script:
@@ -106,13 +200,40 @@ rollback:kubernetes:
     - echo "$KUBE_CONFIG" | base64 -D > ~/.kube/config
     - chmod 600 ~/.kube/config
   script:
-    - echo "Manual rollback by $GITLAB_USER_LOGIN"
+    - echo "⏪ Manual rollback triggered by $GITLAB_USER_LOGIN"
     - kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE"
     - kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=120s
     - kubectl get pods -n "$K8S_NAMESPACE" -l "app.kubernetes.io/name=$APP_NAME"
+    - echo "✅ Rollback complete"
   environment:
-    name: production
-    action: prepare
+    name: production-onprem
+    action: rollback
+    url: https://mervin-tetrahydric-dwayne.ngrok-free.dev
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+
+# ── Stage 4b: Rollback → GKE ─────────────────────────────────────────────────
+rollback:kubernetes-gcp:
+  stage: rollback
+  needs:
+    - job: deploy:kubernetes-gcp
+  when: manual
+  allow_failure: false
+  before_script:
+    - mkdir -p ~/.kube
+    - echo "$GKE_KUBE_CONFIG" | base64 -D > ~/.kube/config
+    - chmod 600 ~/.kube/config
+  script:
+    - echo "⏪ Manual rollback triggered by $GITLAB_USER_LOGIN"
+    - kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE"
+    - kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=120s
+    - kubectl get pods -n "$K8S_NAMESPACE" -l "app.kubernetes.io/name=$APP_NAME"
+    - echo "✅ Rollback complete"
+  environment:
+    name: production-gcp
+    action: rollback
+    url: http://34.71.85.1
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "feature/gke"'
       when: manual
