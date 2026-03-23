@@ -43,6 +43,7 @@ module "k8s_app" {
 
   # Artifact Registry credentials handled by node SA — no pull secret needed
   # But module requires these vars — pass empty (pull secret won't work, that's ok)
+  service_type      = "LoadBalancer"
   registry_username = "oauth2accesstoken"
   registry_password = ""
   registry_host     = "${var.gcp_region}-docker.pkg.dev"

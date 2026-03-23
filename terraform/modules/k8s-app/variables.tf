@@ -44,3 +44,9 @@ variable "registry_host" {
   description = "Container registry host:port — set in terraform.tfvars"
   type        = string
 }
+
+variable "service_type" {
+  description = "Kubernetes Service type — ClusterIP for on-prem (Traefik ingress), LoadBalancer for GKE"
+  type        = string
+  default     = "ClusterIP"
+}

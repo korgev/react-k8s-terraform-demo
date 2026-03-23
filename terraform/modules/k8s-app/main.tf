@@ -83,7 +83,7 @@ resource "kubernetes_service" "app" {
   }
 
   spec {
-    type     = "ClusterIP"
+    type     = var.service_type
     selector = local.selector_labels
 
     port {

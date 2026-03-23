@@ -54,3 +54,5 @@ kubeconfig-gke
 kubeconfig-gke-real
 kubeconfig-gke-only
 kubeconfig-gke-ci
+gke-ci-key.json
+gke-ci-key.json

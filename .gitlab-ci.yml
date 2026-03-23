@@ -88,6 +88,8 @@ docker:build-push-gcp:
   before_script:
     - export PATH="$PATH:/opt/homebrew/share/google-cloud-sdk/bin"
     - docker version --format "Docker {{.Client.Version}}"
+    - echo "$GCP_SA_KEY" | base64 -D > /tmp/gcp-sa-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
     - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
     # Setup buildx for multi-platform build (arm64 Mac → amd64 GKE)
     - docker buildx create --name multiarch --use --bootstrap 2>/dev/null || docker buildx use multiarch
@@ -161,9 +163,9 @@ deploy:kubernetes-gcp:
   before_script:
     - kubectl version --client
     - mkdir -p ~/.kube
-    - echo "GKE_KUBE_CONFIG length=${#GKE_KUBE_CONFIG}"
-    - echo "$GKE_KUBE_CONFIG" | base64 -D > ~/.kube/config
-    - chmod 600 ~/.kube/config
+    - echo "$GCP_SA_KEY" | base64 -D > /tmp/gcp-sa-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
+    - gcloud container clusters get-credentials react-k8s-gke --region us-central1 --project react-k8s-demo
     - export KUBECONFIG=~/.kube/config
     - cat ~/.kube/config | grep -E "current-context|server:"
     - kubectl cluster-info --request-timeout=10s
@@ -188,7 +190,7 @@ deploy:kubernetes-gcp:
     - kubectl get pods -n webapp --kubeconfig ~/.kube/config 2>/dev/null || true
   environment:
     name: production-gcp
-    url: http://34.71.85.1
+    url: http://35.226.47.178
   rules:
     - if: '$CI_COMMIT_BRANCH == "feature/gke"'
 
@@ -206,7 +208,7 @@ rollback:kubernetes:
   script:
     - echo "⏪ Manual rollback triggered by $GITLAB_USER_LOGIN"
     - kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE"
-    - kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=120s
+    - kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=300s
     - kubectl get pods -n "$K8S_NAMESPACE" -l "app.kubernetes.io/name=$APP_NAME"
     - echo "✅ Rollback complete"
   environment:
@@ -226,18 +228,20 @@ rollback:kubernetes-gcp:
   allow_failure: false
   before_script:
     - mkdir -p ~/.kube
-    - echo "$GKE_KUBE_CONFIG" | base64 -D > ~/.kube/config
-    - chmod 600 ~/.kube/config
+    - echo "$GCP_SA_KEY" | base64 -D > /tmp/gcp-sa-key.json
+    - gcloud auth activate-service-account --key-file=/tmp/gcp-sa-key.json
+    - gcloud container clusters get-credentials react-k8s-gke --region us-central1 --project react-k8s-demo
+    - export KUBECONFIG=~/.kube/config
   script:
     - echo "⏪ Manual rollback triggered by $GITLAB_USER_LOGIN"
     - kubectl rollout undo deployment/"$APP_NAME" -n "$K8S_NAMESPACE"
-    - kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=120s
+    - kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE" --timeout=300s
     - kubectl get pods -n "$K8S_NAMESPACE" -l "app.kubernetes.io/name=$APP_NAME"
     - echo "✅ Rollback complete"
   environment:
     name: production-gcp
     action: prepare
-    url: http://34.71.85.1
+    url: http://35.226.47.178
   rules:
     - if: '$CI_COMMIT_BRANCH == "feature/gke"'
       when: manual

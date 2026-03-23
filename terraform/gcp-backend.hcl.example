@@ -1,0 +1,10 @@
+# GCP state — separate from on-prem state
+# Copy to terraform/gcp-backend.hcl (gitignored) and fill values
+# Init: cd terraform/gcp && terraform init -backend-config=../gcp-backend.hcl
+
+address        = "http://192.168.2.2/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-gke"
+lock_address   = "http://192.168.2.2/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-gke/lock"
+unlock_address = "http://192.168.2.2/api/v4/projects/YOUR_PROJECT_ID/terraform/state/react-k8s-gke/lock"
+lock_method    = "POST"
+unlock_method  = "DELETE"
+retry_wait_min = 5
