@@ -23,7 +23,7 @@ variables:
   GCP_PROJECT:      "react-k8s-demo"
   GCP_REGISTRY:     "us-central1-docker.pkg.dev/react-k8s-demo/react-app/react-app"
   GCP_IMAGE_SHA:    "us-central1-docker.pkg.dev/react-k8s-demo/react-app/react-app:$CI_COMMIT_SHORT_SHA"
-  GCP_IMAGE_VERSION:"us-central1-docker.pkg.dev/react-k8s-demo/react-app/react-app:v1.0.$CI_PIPELINE_IID"
+  GCP_IMAGE_VERSION: "us-central1-docker.pkg.dev/react-k8s-demo/react-app/react-app:v1.0.$CI_PIPELINE_IID"
 
   # ── Shared ─────────────────────────────────────────────────────────────────
   K8S_NAMESPACE:    "webapp"
