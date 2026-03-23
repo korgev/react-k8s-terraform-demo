@@ -54,3 +54,8 @@ kubeconfig-gke*
 # GCP SA keys
 gke-ci-key.json
 gke_gcloud_auth_plugin_cache
+
+# Terraform local/sensitive files
+terraform/*.tfvars
+terraform/*.tfvars.json
+terraform/gke-sa-key.json

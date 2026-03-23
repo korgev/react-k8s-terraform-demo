@@ -10,10 +10,13 @@ The project has **two deployments**: on-prem (Kind) and cloud (GKE).
 | Resource | URL |
 |---|---|
 | **On-prem app (public)** | https://mervin-tetrahydric-dwayne.ngrok-free.dev |
-| **GKE app (public)** | http://35.226.47.178 |
-| **Grafana (GKE)** | http://136.111.211.236 |
+| **GKE app (public)** | https://acba.harmar.site |
+| **Grafana (GKE)** | https://grafana.harmar.site |
 | **Source code (GitHub)** | https://github.com/korgev/react-k8s-terraform-demo |
 
+> **Note:** This is a read-only GitHub mirror of the project.
+> The CI/CD pipeline runs on a self-hosted GitLab CE instance.
+> 
 ---
 
 ## Requirement 1 — Terraform provisions Kubernetes cluster
@@ -65,7 +68,7 @@ gcloud container clusters list --project react-k8s-demo
 |---|---|---|
 | Stack | kube-prometheus-stack v72.6.2 | Grafana + GCP Cloud Monitoring |
 | Prometheus | ✅ running | GKE Autopilot built-in metrics |
-| Grafana | http://grafana.local | http://136.111.211.236 |
+| Grafana | http://grafana.local | https://grafana.harmar.site |
 
 ---
 
@@ -92,7 +95,7 @@ gcloud container clusters list --project react-k8s-demo
 ## Production Improvements (next steps)
 
 - **HTTPS on GKE** — GCP Certificate Manager + managed SSL cert
-- **Custom domain** — Cloud DNS + real domain (~$12/yr)
+- **Custom domain** — Cloud DNS + real domain 
 - **GitOps** — ArgoCD/FluxCD replacing push-based kubectl
 - **Image scanning** — Trivy in CI pipeline
 - **Vault** — HashiCorp Vault replacing .envrc secrets
@@ -107,5 +110,5 @@ bash scripts/validate.sh
 
 # GKE
 kubectl get pods -n webapp --kubeconfig kubeconfig-gke-ci
-curl -sI http://35.226.47.178
+curl -sI https://acba.harmar.site
 ```

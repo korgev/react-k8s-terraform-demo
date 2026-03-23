@@ -2,16 +2,27 @@
 
 > **Kubernetes · Terraform · GitLab CI/CD · React · Prometheus/Grafana**
 
-A production-grade DevOps task solution: Terraform provisions a local Kind
-Kubernetes cluster → GitLab CI/CD builds and deploys a React app → Traefik v3
-routes traffic → Prometheus + Grafana provide observability → ngrok exposes
-the app publicly over HTTPS.
+A DevOps assessment task solution that provisions Kubernetes with Terraform, deploys a React application through GitLab CI/CD, and exposes it publicly.
+
+This repository contains **two deployment targets**:
+
+- **Primary implementation:** local/on-prem Kubernetes using **Kind**
+- **Cloud extension:** managed Kubernetes on **GKE**
 
 > **Note:** This is a read-only GitHub mirror of the project.
 > The CI/CD pipeline runs on a self-hosted GitLab CE instance.
 > Live app: https://mervin-tetrahydric-dwayne.ngrok-free.dev
 
-**Live URL:** https://mervin-tetrahydric-dwayne.ngrok-free.dev
+## Live Access
+
+| Resource | Local / On-prem | GKE / Cloud |
+|---|---|---|
+| React App (public) | https://mervin-tetrahydric-dwayne.ngrok-free.dev | https://acba.harmar.site |
+| Grafana | http://grafana.local | https://grafana.harmar.site |
+| GitLab CE | http://192.168.2.2 | Self-hosted CI/CD control plane |
+| Source code (GitHub mirror) | https://github.com/korgev/react-k8s-terraform-demo | https://github.com/korgev/react-k8s-terraform-demo |
+
+---
 
 ---
 
@@ -148,39 +159,6 @@ react-k8s-terraform-demo/
 ## Quick Start
 
 Full step-by-step instructions are in **[docs/SETUP.md](docs/SETUP.md)**.
-```bash
-# 1. Clone the repo
-git clone https://github.com/korgev/react-k8s-terraform-demo.git
-cd react-k8s-terraform-demo
-
-# 2. Install prerequisites (macOS)
-brew install git kubectl helm direnv
-brew install --cask orbstack
-
-# 3. Configure secrets
-cp scripts/envrc.template .envrc
-# Edit .envrc with your credentials, then:
-direnv allow .
-
-# 4. Configure Terraform backend
-cp terraform/backend.hcl.example terraform/backend.hcl
-# Edit backend.hcl with your GitLab CE URL and project ID
-
-# 5. Copy and edit tfvars
-cp terraform/terraform.tfvars.example terraform/terraform.tfvars
-# Edit terraform.tfvars with your registry host and image repository
-
-# 6. Provision the cluster
-cd terraform
-terraform init -backend-config=backend.hcl
-terraform apply
-
-# 7. Add local DNS entries
-echo "127.0.0.1 webapp.local grafana.local" | sudo tee -a /etc/hosts
-
-# 8. Open the app
-open http://webapp.local
-```
 
 ---
 
@@ -203,17 +181,6 @@ git push → main
 
 ---
 
-## Accessing Services
-
-| Service    | URL                                                        | Notes                          |
-|------------|------------------------------------------------------------|--------------------------------|
-| React app  | https://mervin-tetrahydric-dwayne.ngrok-free.dev           | Public — no setup needed       |
-| React app  | http://webapp.local                                        | Local — /etc/hosts required    |
-| Grafana    | http://grafana.local                                       | admin / see docs/SETUP.md      |
-| Prometheus | `kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n monitoring` | Local only |
-| GitLab CE  | http://192.168.2.2                                         | Self-hosted on Multipass VM    |
-
----
 
 ## Monitoring
 
@@ -229,17 +196,6 @@ Grafana at `http://grafana.local` — pre-loaded dashboards:
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model.
 
-- ✅ nginx on port 8080 — `runAsNonRoot: true`, uid 101
-- ✅ `seccompProfile: RuntimeDefault` on pod and container
-- ✅ Drop ALL Linux capabilities
-- ✅ Pod Security Admission — `baseline` enforced on webapp namespace
-- ✅ No secrets in git — direnv + GitLab CI masked variables only
-- ✅ Immutable image tags — git SHA + semver, no `:latest`
-- ✅ Registry pull secret — `sensitive = true` in Terraform state
-- ✅ `KUBE_CONFIG` — protected + masked CI variable
-- ✅ Auto-rollback on failed deployment
-- ✅ Terraform backend credentials via env vars only
-
 ---
 
 ## Validation
@@ -250,10 +206,6 @@ bash scripts/validate.sh
 
 ---
 
-## Architecture Diagram
-```bash
-open docs/architecture.pdf
-```
 
 ---
 

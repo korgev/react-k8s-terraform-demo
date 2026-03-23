@@ -88,7 +88,7 @@ GKE Autopilot (us-central1, K8s 1.34)
 └── monitoring    → Grafana
         │
         ▼
-http://35.226.47.178 (GCP Cloud LoadBalancer)
+https://acba.harmar.site (GCP Cloud LoadBalancer)
 ```
 
 ---

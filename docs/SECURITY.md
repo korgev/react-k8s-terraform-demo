@@ -6,8 +6,8 @@
 |---|---|---|
 | Source code | https://github.com/korgev/react-k8s-terraform-demo | Public, no account needed |
 | On-prem app | https://mervin-tetrahydric-dwayne.ngrok-free.dev | Always-on, HTTPS |
-| GKE app | http://35.226.47.178 | Real GCP LoadBalancer |
-| Grafana (GKE) | http://136.111.211.236 | admin / see SETUP.md |
+| GKE app | https://acba.harmar.site | Real GCP LoadBalancer |
+| Grafana (GKE) | https://grafana.harmar.site | admin / see SETUP.md |
 | Grafana (on-prem) | http://grafana.local | Requires /etc/hosts entry |
 
 Reviewer CANNOT: push code, modify CI variables, access clusters, push/delete images.
