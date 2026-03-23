@@ -207,7 +207,7 @@ rollback:kubernetes:
     - echo "✅ Rollback complete"
   environment:
     name: production-onprem
-    action: rollback
+    action: prepare
     url: https://mervin-tetrahydric-dwayne.ngrok-free.dev
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
@@ -232,7 +232,7 @@ rollback:kubernetes-gcp:
     - echo "✅ Rollback complete"
   environment:
     name: production-gcp
-    action: rollback
+    action: prepare
     url: http://34.71.85.1
   rules:
     - if: '$CI_COMMIT_BRANCH == "feature/gke"'
