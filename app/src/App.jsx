@@ -7,13 +7,22 @@ const BUILD_TIME     = import.meta.env.VITE_BUILD_TIME    || new Date().toISOStr
 const ENVIRONMENT    = import.meta.env.VITE_ENVIRONMENT   || 'local'
 const CLUSTER_NAME   = import.meta.env.VITE_CLUSTER_NAME  || 'react-k8s-cluster'
 
-const services = [
-  { name: 'Kubernetes Cluster',    status: 'HEALTHY',  detail: 'kind v1.32 · 2 nodes'        },
-  { name: 'GitLab CI/CD',          status: 'HEALTHY',  detail: 'Pipeline #' + BUILD_SHA.slice(0,6) },
-  { name: 'Container Registry',    status: 'HEALTHY',  detail: 'GitLab CE · 192.168.2.2:5050'          },
-  { name: 'Traefik v3',         status: 'HEALTHY',  detail: 'traefik v3 · active'       },
-  { name: 'Prometheus',            status: 'HEALTHY',  detail: 'kube-prometheus-stack'        },
-  { name: 'Grafana',               status: 'HEALTHY',  detail: 'dashboards ready'             },
+const IS_GCP = ENVIRONMENT === 'production-gcp'
+
+const services = IS_GCP ? [
+  { name: 'Kubernetes Cluster',  status: 'HEALTHY', detail: 'GKE Autopilot · us-central1'      },
+  { name: 'GitLab CI/CD',        status: 'HEALTHY', detail: 'Pipeline #' + BUILD_SHA.slice(0,6) },
+  { name: 'Container Registry',  status: 'HEALTHY', detail: 'GCP Artifact Registry'             },
+  { name: 'Cloud Load Balancer', status: 'HEALTHY', detail: 'GKE native · real public IP'       },
+  { name: 'Grafana',             status: 'HEALTHY', detail: 'Cloud Monitoring datasource'        },
+  { name: 'GCP Cloud Monitoring',status: 'HEALTHY', detail: 'built-in Autopilot metrics'        },
+] : [
+  { name: 'Kubernetes Cluster',  status: 'HEALTHY', detail: 'kind v1.32 · 2 nodes'              },
+  { name: 'GitLab CI/CD',        status: 'HEALTHY', detail: 'Pipeline #' + BUILD_SHA.slice(0,6) },
+  { name: 'Container Registry',  status: 'HEALTHY', detail: 'GitLab CE · 192.168.2.2:5050'      },
+  { name: 'Traefik v3',          status: 'HEALTHY', detail: 'traefik v3 · active'               },
+  { name: 'Prometheus',          status: 'HEALTHY', detail: 'kube-prometheus-stack'              },
+  { name: 'Grafana',             status: 'HEALTHY', detail: 'dashboards ready'                   },
 ]
 
 function StatusDot({ status }) {
@@ -92,11 +101,16 @@ export default function App() {
         </h2>
         <div className="about">
           <p className="about__text">
-            A production-grade infrastructure demo: this React app was built by GitLab CI,
+            {IS_GCP
+            ? \`A production-grade cloud deployment: this React app was built by GitLab CI,
+            packaged as a linux/amd64 Docker image, pushed to GCP Artifact Registry,
+            deployed to GKE Autopilot provisioned by Terraform, and exposed via a real
+            GCP Cloud Load Balancer — running on Google Cloud us-central1.\`
+            : \`A production-grade infrastructure demo: this React app was built by GitLab CI,
             packaged as a Docker image, pushed to a self-hosted registry, deployed to a
             Kind Kubernetes cluster provisioned by Terraform, and exposed publicly via
-            Traefik v3 + ngrok — all running on a local MacBook. The deployment info
-            below reflects the actual CI pipeline that built and shipped this page.
+            Traefik v3 + ngrok — all running on a local MacBook.\`
+          }
           </p>
           <div className="about__stack">
             <div className="about__item">
@@ -111,13 +125,19 @@ export default function App() {
             </div>
             <div className="about__item">
               <span className="about__icon">⬡</span>
-              <span className="about__label">Observed with Prometheus + Grafana</span>
-              <span className="about__desc">Full metrics stack via kube-prometheus-stack — pod health, resource usage, node metrics</span>
+              <span className="about__label">{IS_GCP ? "Observed with GCP Cloud Monitoring + Grafana" : "Observed with Prometheus + Grafana"}</span>
+              <span className="about__desc">{IS_GCP
+                ? "GKE Autopilot ships built-in metrics — Grafana visualises Cloud Monitoring datasource"
+                : "Full metrics stack via kube-prometheus-stack — pod health, resource usage, node metrics"
+              }</span>
             </div>
             <div className="about__item">
               <span className="about__icon">⬡</span>
-              <span className="about__label">Exposed via Traefik v3 + ngrok</span>
-              <span className="about__desc">Ingress controller routes traffic — static ngrok domain provides HTTPS public access without a cloud LB</span>
+              <span className="about__label">{IS_GCP ? "Exposed via GCP Cloud Load Balancer" : "Exposed via Traefik v3 + ngrok"}</span>
+              <span className="about__desc">{IS_GCP
+                ? "Real public IP via GKE native LoadBalancer — no tunneling needed on cloud"
+                : "Ingress controller routes traffic — static ngrok domain provides HTTPS public access without a cloud LB"
+              }</span>
             </div>
           </div>
         </div>

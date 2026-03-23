@@ -50,12 +50,6 @@ module "k8s_app" {
 }
 
 # ─── Monitoring Module ────────────────────────────────────────────────────────
-# Reused from on-prem — identical module
-module "monitoring" {
-  source = "../modules/monitoring"
-
-  depends_on = [module.gke_cluster]
-
-  grafana_admin_password = var.grafana_admin_password
-  grafana_host           = var.gcp_grafana_host
-}
+# Monitoring: GCP uses lightweight Grafana only (see monitoring-gcp.tf)
+# kube-prometheus-stack NOT deployed on GCP — too heavy for Autopilot free tier
+# GKE Autopilot ships with Cloud Monitoring built-in
