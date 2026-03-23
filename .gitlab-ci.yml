@@ -89,9 +89,12 @@ docker:build-push-gcp:
     - export PATH="$PATH:/opt/homebrew/share/google-cloud-sdk/bin"
     - docker version --format "Docker {{.Client.Version}}"
     - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+    # Setup buildx for multi-platform build (arm64 Mac → amd64 GKE)
+    - docker buildx create --name multiarch --use --bootstrap 2>/dev/null || docker buildx use multiarch
   script:
     - |
-      docker build \
+      docker buildx build \
+        --platform linux/amd64 \
         --build-arg VITE_APP_VERSION="$APP_VERSION" \
         --build-arg VITE_COMMIT_SHA="$CI_COMMIT_SHA" \
         --build-arg VITE_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -102,9 +105,8 @@ docker:build-push-gcp:
         --label "org.opencontainers.image.version=$APP_VERSION" \
         -t "$GCP_IMAGE_SHA" \
         -t "$GCP_IMAGE_VERSION" \
+        --push \
         app/
-    - docker push "$GCP_IMAGE_SHA"
-    - docker push "$GCP_IMAGE_VERSION"
     - echo "GCP_IMAGE_SHA=$GCP_IMAGE_SHA"         >> build.env
     - echo "GCP_IMAGE_VERSION=$GCP_IMAGE_VERSION" >> build.env
     - echo "APP_VERSION=$APP_VERSION"             >> build.env
