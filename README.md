@@ -7,6 +7,10 @@ Kubernetes cluster → GitLab CI/CD builds and deploys a React app → Traefik v
 routes traffic → Prometheus + Grafana provide observability → ngrok exposes
 the app publicly over HTTPS.
 
+> **Note:** This is a read-only GitHub mirror of the project.
+> The CI/CD pipeline runs on a self-hosted GitLab CE instance.
+> Live app: https://mervin-tetrahydric-dwayne.ngrok-free.dev
+
 **Live URL:** https://mervin-tetrahydric-dwayne.ngrok-free.dev
 
 ---
