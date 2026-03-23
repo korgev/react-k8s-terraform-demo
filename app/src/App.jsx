@@ -102,14 +102,8 @@ export default function App() {
         <div className="about">
           <p className="about__text">
             {IS_GCP
-            ? \`A production-grade cloud deployment: this React app was built by GitLab CI,
-            packaged as a linux/amd64 Docker image, pushed to GCP Artifact Registry,
-            deployed to GKE Autopilot provisioned by Terraform, and exposed via a real
-            GCP Cloud Load Balancer — running on Google Cloud us-central1.\`
-            : \`A production-grade infrastructure demo: this React app was built by GitLab CI,
-            packaged as a Docker image, pushed to a self-hosted registry, deployed to a
-            Kind Kubernetes cluster provisioned by Terraform, and exposed publicly via
-            Traefik v3 + ngrok — all running on a local MacBook.\`
+            ? 'A production-grade cloud deployment: this React app was built by GitLab CI, packaged as a linux/amd64 Docker image, pushed to GCP Artifact Registry, deployed to GKE Autopilot provisioned by Terraform, and exposed via a real GCP Cloud Load Balancer — running on Google Cloud us-central1.'
+            : 'A production-grade infrastructure demo: this React app was built by GitLab CI, packaged as a Docker image, pushed to a self-hosted registry, deployed to a Kind Kubernetes cluster provisioned by Terraform, and exposed publicly via Traefik v3 + ngrok — all running on a local MacBook.'
           }
           </p>
           <div className="about__stack">
