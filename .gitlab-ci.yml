@@ -86,8 +86,8 @@ docker:build-push-gcp:
   needs:
     - job: test:build
   before_script:
+    - export PATH="$PATH:/opt/homebrew/share/google-cloud-sdk/bin"
     - docker version --format "Docker {{.Client.Version}}"
-    # gcloud auth configure-docker for Artifact Registry
     - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
   script:
     - |
