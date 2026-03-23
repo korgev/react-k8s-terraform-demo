@@ -428,3 +428,151 @@ git push → main      → pipeline builds image → kubectl apply → Deploymen
 *See [ARCHITECTURE.md](ARCHITECTURE.md) for deep-dive architecture decisions*
 *See [SECURITY.md](SECURITY.md) for full security posture*
 *See [REVIEWER.md](REVIEWER.md) for task compliance evidence*
+
+---
+
+## GCP/GKE Setup (feature/gke branch)
+
+> **Note:** On-prem setup (Phases 1-12) must be completed first — GitLab CE and
+> the runner are shared between both deployments.
+
+### GCP Prerequisites
+```bash
+brew install --cask google-cloud-sdk
+gcloud --version
+```
+
+### GCP Phase 1 — Project Setup
+```bash
+# Authenticate
+gcloud auth login
+gcloud auth application-default login
+
+# Configure project
+gcloud config set project react-k8s-demo
+gcloud config set compute/region us-central1
+
+# Enable required APIs
+gcloud services enable \
+  container.googleapis.com \
+  compute.googleapis.com \
+  cloudresourcemanager.googleapis.com \
+  iam.googleapis.com \
+  artifactregistry.googleapis.com
+```
+
+### GCP Phase 2 — Service Accounts
+```bash
+# Terraform SA (provisioning)
+gcloud iam service-accounts create terraform-gcp \
+  --display-name="Terraform GCP"
+
+for role in container.admin compute.networkAdmin compute.securityAdmin \
+  iam.serviceAccountUser iam.serviceAccountAdmin \
+  resourcemanager.projectIamAdmin artifactregistry.admin; do
+  gcloud projects add-iam-policy-binding PROJECT_ID \
+    --member="serviceAccount:terraform-gcp@PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/$role" --quiet
+done
+
+gcloud iam service-accounts keys create terraform/gke-sa-key.json \
+  --iam-account=terraform-gcp@PROJECT_ID.iam.gserviceaccount.com
+
+# CI runner SA (pipeline)
+gcloud iam service-accounts create gke-ci-runner \
+  --display-name="GKE CI Runner"
+
+gcloud projects add-iam-policy-binding PROJECT_ID \
+  --member="serviceAccount:gke-ci-runner@PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/container.developer"
+
+gcloud projects add-iam-policy-binding PROJECT_ID \
+  --member="serviceAccount:gke-ci-runner@PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+gcloud iam service-accounts keys create gke-ci-key.json \
+  --iam-account=gke-ci-runner@PROJECT_ID.iam.gserviceaccount.com
+```
+
+### GCP Phase 3 — Artifact Registry
+```bash
+gcloud artifacts repositories create react-app \
+  --repository-format=docker \
+  --location=us-central1 \
+  --description="React app Docker images"
+
+gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+```
+
+### GCP Phase 4 — GCS State Bucket
+```bash
+gcloud storage buckets create gs://PROJECT_ID-tfstate \
+  --location=us-central1 \
+  --project=PROJECT_ID
+
+gcloud storage buckets update gs://PROJECT_ID-tfstate \
+  --versioning
+```
+
+### GCP Phase 5 — Terraform Apply (Phased)
+```bash
+git checkout feature/gke
+cd terraform/gcp
+
+# Phase 1: cluster + registry
+terraform init
+terraform apply \
+  -target=module.gke_cluster \
+  -target=google_artifact_registry_repository.react_app
+
+# Phase 2: K8s resources
+terraform apply
+```
+
+### GCP Phase 6 — GitLab CI Variables
+```bash
+# Encode SA key for CI
+GCP_SA_KEY=$(cat gke-ci-key.json | base64 | tr -d '\n')
+
+# Add via GitLab API or UI:
+# Key: GCP_SA_KEY
+# Value: $GCP_SA_KEY
+# Protected: false, Masked: true
+```
+
+### GCP Phase 7 — Trigger GKE Pipeline
+```bash
+git commit --allow-empty -m "ci: trigger GKE deployment"
+git push origin feature/gke
+```
+
+Watch: GitLab → **CI/CD** → **Pipelines** → `feature/gke` branch
+
+### GCP Teardown
+```bash
+cd terraform/gcp && terraform destroy
+
+# Delete GCS bucket
+gcloud storage rm -r gs://PROJECT_ID-tfstate
+
+# Delete Artifact Registry
+gcloud artifacts repositories delete react-app \
+  --location=us-central1 --quiet
+
+# Revoke SA keys
+gcloud iam service-accounts delete \
+  gke-ci-runner@PROJECT_ID.iam.gserviceaccount.com --quiet
+```
+
+---
+
+## Troubleshooting (GKE)
+
+| Issue | Solution |
+|-------|----------|
+| `gcloud: command not found` in CI | Add `export PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"` to CI job |
+| `exec format error` in GKE pods | Build with `--platform linux/amd64` — Mac is arm64, GKE is amd64 |
+| Token expired (`Unauthorized`) | SA key never expires — re-run `gcloud auth activate-service-account` |
+| GKE pods pending | GKE Autopilot provisions nodes on demand — wait 2-3 minutes |
+| State lock on GCS | Run `terraform force-unlock -force LOCK_ID` |
+| Terraform providers conflict | GKE uses separate `terraform/gcp/` directory — never mix with on-prem |

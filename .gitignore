@@ -49,12 +49,8 @@ terraform/react-k8s-cluster-config
 .helm-cache/
 .helm-repositories.yaml
 terraform/backend.hcl
-terraform/gcp-backend.hcl
-kubeconfig-gke
-kubeconfig-gke-real
-kubeconfig-gke-only
-kubeconfig-gke-ci
-gke-ci-key.json
+# GKE kubeconfigs (all variants)
+kubeconfig-gke*
+# GCP SA keys
 gke-ci-key.json
 gke_gcloud_auth_plugin_cache
-terraform/gke-sa-key.json
