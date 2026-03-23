@@ -53,9 +53,7 @@ docker:build-push:
     - job: test:build
   before_script:
     - docker version --format "Docker {{.Client.Version}}"
-    - echo "$CI_REGISTRY_PASSWORD" | docker login \
-        --username "$CI_REGISTRY_USER" \
-        --password-stdin "http://$CI_REGISTRY"
+    - echo "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "http://$CI_REGISTRY"
   script:
     - |
       docker build \
