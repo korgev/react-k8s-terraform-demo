@@ -159,10 +159,11 @@ deploy:kubernetes-gcp:
   before_script:
     - kubectl version --client
     - mkdir -p ~/.kube
+    - echo "GKE_KUBE_CONFIG length=${#GKE_KUBE_CONFIG}"
     - echo "$GKE_KUBE_CONFIG" | base64 -D > ~/.kube/config
     - chmod 600 ~/.kube/config
     - export KUBECONFIG=~/.kube/config
-    - kubectl config view --minify
+    - cat ~/.kube/config | grep -E "current-context|server:"
     - kubectl cluster-info --request-timeout=10s
   script:
     - export KUBECONFIG=~/.kube/config
